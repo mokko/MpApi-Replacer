@@ -1,0 +1,11 @@
+*.pyc
+*.xml
+.coverage
+credentials.py
+.settings/*
+__pycache__
+bak/*
+dist/*
+build/*
+sdata/*
+*.spec
