@@ -140,9 +140,9 @@ class OneFieldReplacer:
             ]"""  # 31041 = Digitale Aufnahme
 
         for itemN in search_result.xpath(xpath):
-            return self._perItem(itemN)
+            return self._perItem(itemN=itemN, mtype=mtype, field=field)
 
-    def _perItem(self, itemN):
+    def _perItem(self, *, itemN, mtype:str, field:str):
         """
         Process each individual item (=record), expects itemN as a node
 
@@ -161,8 +161,6 @@ class OneFieldReplacer:
         Let's write this method so that I document my faile attempts
         """
 
-        mtype = self.conf["module"]
-        field = self.conf["field"]
         mulId = itemN.xpath("@id")[0]  # there can be only one
         refName = itemN.xpath("m:vocabularyReference/@name", namespaces=NSMAP)[0]
         refId = itemN.xpath("m:vocabularyReference/@id", namespaces=NSMAP)[0]
@@ -177,25 +175,35 @@ class OneFieldReplacer:
 
         # self._updateRepeatableGroup(mtype=mtype, mulId=mulId, refName=refName, refId=refId, new_id=new_id)
 
+        m = Module(tree=itemN)
+        m.uploadForm()
+        vocRefItemN = m.xpath(f"""/m:application/m:modules/m:module[
+            @name = '{mtype}'
+        ]/m:moduleItem/m:vocabularyReference[
+            @name='MulTypeVoc'
+        ]/m:vocabularyReferenceItem""")[0]
+
+        attribs = vocRefItemN.attrib
+        attribs['id'] = new_id
+        if "name" in attribs:
+            del attribs['name']
+
+        print ("Writing to DDnewModule.xml")
+        m.toFile(path="DDnewModule.xml")
         return self._updateItem(
             mtype=mtype,
             mulId=mulId,
-            refName=refName,
-            refId=refId,
-            new_id=new_id,
-            itemN=itemN,
+            data=m,
         )
 
     def _updateItem(
-        self, *, mtype: str, mulId: int, refName: str, refId: int, new_id: int, itemN
+        self, *, mtype: str, mulId: int, data: Module
     ):
         """
         First attempt. Let's test module's upload_form and see if we can update an
         existing record
         """
-        m = Module(tree=itemN)
-        # m.uploadForm()
-        request = self.ria.updateItem2(mtype="Multimedia", ID=mulId, data=m)
+        request = self.ria.updateItem2(mtype="Multimedia", ID=mulId, data=data)
         print(request)
 
     def _toString(self, node) -> None:
