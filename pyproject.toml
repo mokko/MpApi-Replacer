@@ -1,0 +1,28 @@
+[build-system]
+requires = ["flit_core >=3.2"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "MpApi.Replace"
+authors = [{name = "Maurice Mengel", email = "mauricemengel@gmail.com"}]
+readme = "README.md"
+license = {file = "LICENSE"}
+classifiers = ["License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)"]
+dynamic = ["version", "description"]
+keywords = ["museum", "museumPlus", "api client"]
+# datetime should be included in Python
+# typing_extensions makes newer typing features available to older Pythons 
+dependencies = [
+	"flit",
+    "lxml >=4.8.0", #pathlike objects
+    "requests >=2.6",
+	"typing_extensions",
+]
+[project.optional-dependencies]
+test = [
+    "pytest >=2.7.3",
+]
+
+[project.scripts]
+mpReplace1 = 'MpApi.Replace:replacer1'
+mpReplace2 = 'MpApi.Replace:replacer2'

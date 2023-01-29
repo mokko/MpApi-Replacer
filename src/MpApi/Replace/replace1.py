@@ -60,7 +60,7 @@ from mpapi.search import Search
 from typing import Any, Callable, Iterable
 
 
-class Replace:
+class Replace1:
     def __init__(
         self, *, baseURL: str, user: str, pw: str, lazy: bool = False, act: bool = False
     ) -> None:

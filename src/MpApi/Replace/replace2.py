@@ -55,10 +55,8 @@ if Path(credentials).exists():
     with open(credentials) as f:
         exec(f.read())
 
-known_fields = {"MulTypeVoc": something}
 
-
-class OneFieldReplacer:
+class Replace2:
     def __init__(
         self,
         *,
@@ -198,33 +196,4 @@ class OneFieldReplacer:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Command line frontend for Replace.py")
-    parser.add_argument(
-        "-c",
-        "--cache",
-        help="lazy modes reads search results from a file cache",
-        action="store_true",
-    )
-    parser.add_argument(
-        "-a",
-        "--act",
-        help="include action, without it only show what would be changed",
-        action="store_true",
-    )
-    parser.add_argument(
-        "-j", "--job", help="load a plugin and use that code", required=True
-    )
-    parser.add_argument(
-        "-l", "--limit", help="set limit for initial search", default="-1"
-    )
-    args = parser.parse_args()
-    replacer = OneFieldReplacer(
-        act=args.act,
-        baseURL=baseURL,
-        job=args.job,
-        cache=args.cache,
-        pw=pw,
-        user=user,
-    )
-    dataM = replacer.search()
-    replacer.replace(search_result=dataM)
+    pass
