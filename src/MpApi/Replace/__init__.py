@@ -88,4 +88,4 @@ def replacer2():
         user=user,
     )
     dataM = replacer.search()
-    replacer.replace(search_result=dataM)
+    replacer.replace(results=dataM)

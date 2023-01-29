@@ -56,13 +56,17 @@ if Path(credentials).exists():
         exec(f.read())
 
 
+class ConfigError(Exception):
+    pass
+
+
 class Replace2:
     def __init__(
         self,
         *,
         act: bool = False,
         baseURL: str,
-        conf: str = "oneField.toml",
+        conf: str = "replace2.toml",
         job: str,
         cache: bool = False,
         limit: int = -1,
@@ -79,53 +83,52 @@ class Replace2:
             conf = tomllib.load(f)
 
         self.conf = conf[job]
-        for required in ["searchreplace", "module", "savedQuery"]:
+        for required in ["actions", "module", "savedQuery"]:
             if not required in self.conf:
                 raise Exception(
                     f"ERROR: Required configuration value '{required}' missing!"
                 )
 
     def search(self):
-        print("* Getting search results")
+        """
+        Either make a new query to RIA or return the cached results from previous run
+        (in cache mode).
+
+        It's the user's the responsibility to decide when they want to make a new query.
+
+        Returns Module data potentially with many items/records.
+        """
         qId = self.conf["savedQuery"]
         fn = f"savedQuery-{qId}.xml"
         if self.cache:
-            print(f"* Getting search_results from file cache '{fn}'")
+            print(f"* Getting search results from file cache '{fn}'")
             m = Module(file=fn)
         else:
-            print(f" query ID {qId} {self.conf['module']}")
+            print(f"* New query ID {qId} {self.conf['module']}")
             m = self.ria.runSavedQuery3(
                 ID=qId, Type=self.conf["module"], limit=self.limit
             )
-            print(f"* writing results to {fn}")
+            print(f"* Writing search results to {fn}")
             m.toFile(path=fn)  # overwrites old files
         return m
 
-    def replace(self, *, search_result: Module) -> None:
-        #
-        # first step is the loop
-        #
+    def replace(self, *, results: Module) -> None:
+        """
+        Loops through all items in the search results calling the actions
+        described for the current job (i.e. in the toml config file).
+        """
 
-        # <vocabularyReference name="MulTypeVoc" id="30341" instanceName="MulTypeVgr">
-        #  <vocabularyReferenceItem id="31041" name="image">
-        #    <formattedValue language="de">Digitale Aufnahme</formattedValue>
-        #  </vocabularyReferenceItem>
-        # </vocabularyReference>
-        # we want to include the search value here to look only thru records/items with
-        # matching value -> not anymore. Let's be more generic
         mtype = self.conf["module"]
-        field = self.conf["field"]
 
         xpath = f"""
             /m:application/m:modules/m:module[
                 @name = '{mtype}'
-            ]/m:moduleItem
-            ]"""  # 31041 = Digitale Aufnahme
+            ]/m:moduleItem"""
 
-        for itemN in search_result.xpath(xpath):
-            return self._perItem(itemN=itemN, mtype=mtype, field=field)
+        for itemN in results.xpath(xpath):
+            return self._perItem(itemN=itemN, mtype=mtype)
 
-    def _perItem(self, *, itemN, mtype: str, field: str):
+    def _perItem(self, *, itemN, mtype: str) -> None:
         """
         Process each individual item (=record), expects itemN as a node
 
@@ -146,47 +149,54 @@ class Replace2:
         mulId = itemN.xpath("@id")[0]  # there can be only one
         itemM = Module(tree=itemN)
         itemM.uploadForm()
-        for action in self.conf["searchreplace"]:
-            old = self.conf["searchreplace"][action]["old"]
-            new = self.conf["searchreplace"][action]["new"]
-            self.MulTypeVoc(
-                data=itemM, old_value=old, new_value=new
-            )  # change data in place
-
-        fn = "replacer-afterReplace.temp.xml"
+        for action in self.conf["actions"]:
+            old = self.conf["actions"][action]["old"]
+            new = self.conf["actions"][action]["new"]
+            if mtype == "Multimedia":
+                if action == "MulTypeVoc":
+                    self.MulTypeVoc(
+                        itemM=itemM, old_value=old, new_value=new
+                    )  # change data in place
+                else:
+                    raise TypeError(f"Not yet implemented: {action}")
+            else:
+                raise TypeError(f"Not yet implemented: {action}")
+        fn = "afterReplace.temp.xml"
         print(f"Writing to {fn}")
-        m.toFile(path=fn)
+        itemM.toFile(path=fn)
 
         if self.act:
             request = self.ria.updateItem2(mtype=mtype, ID=mulId, data=itemM)
             print(request)
 
-    def MulTypeVoc(self, *, old_value, new_value, data):
-        mulId = itemN.xpath("@id")[0]  # there can be only one
-        refName = itemN.xpath("m:vocabularyReference/@name", namespaces=NSMAP)[0]
-        refId = itemN.xpath("m:vocabularyReference/@id", namespaces=NSMAP)[0]
-        print(f"mtype {mtype} mulId {mulId} vocRefId {refId} refName {refName}")
+    def MulTypeVoc(self, *, old_value: str, new_value: str, itemM: Module) -> None:
+        """
+        Rewrite itemN data according to action described in toml file.
 
-        # self._updateFieldInGroup(mtype=mtype, mulId=mulId, refName=refName, refId=refId, new_id=new_id)
+        We assume we get only one item/record of the proper mtype passed here inside of
+        itemM.
 
-        # self._update_rGrpItem3(
-        #    mtype=mtype, mulId=mulId, refName=refName, refId=refId, refItemId_new=refItemId_new
-        # )
+        itemM should be changed in place, so no return value necessary?
 
-        # self._updateRepeatableGroup(mtype=mtype, mulId=mulId, refName=refName, refId=refId, new_id=new_id)
+        <vocabularyReference name="MulTypeVoc" id="30341" instanceName="MulTypeVgr">
+          <vocabularyReferenceItem id="31041" name="image">
+            <formattedValue language="de">Digitale Aufnahme</formattedValue>
+          </vocabularyReferenceItem>
+         </vocabularyReference>
+        we want to include the search value here to look only thru records/items with
+        matching value -> not anymore. Let's be more generic
+        """
 
-        vocRefItemN = m.xpath(
-            f"""/m:application/m:modules/m:module[
-            @name = '{mtype}'
-        ]/m:moduleItem/m:vocabularyReference[
-            @name = 'MulTypeVoc'
-        ]/m:vocabularyReferenceItem[
-            @id = {old_value}
-        ]"""
+        vocRefItemN = itemM.xpath(
+            f"""/m:application/m:modules/m:module/m:moduleItem/m:vocabularyReference[
+                @name = 'MulTypeVoc'
+            ]/m:vocabularyReferenceItem[
+                @id = {old_value}
+            ]"""
         )[0]
 
         attribs = vocRefItemN.attrib
-        attribs["id"] = new_value
+        attribs["id"] = str(new_value)
         if "name" in attribs:
             del attribs["name"]
 
