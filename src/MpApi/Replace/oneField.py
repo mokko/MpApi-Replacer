@@ -142,7 +142,7 @@ class OneFieldReplacer:
         for itemN in search_result.xpath(xpath):
             return self._perItem(itemN=itemN, mtype=mtype, field=field)
 
-    def _perItem(self, *, itemN, mtype:str, field:str):
+    def _perItem(self, *, itemN, mtype: str, field: str):
         """
         Process each individual item (=record), expects itemN as a node
 
@@ -177,18 +177,20 @@ class OneFieldReplacer:
 
         m = Module(tree=itemN)
         m.uploadForm()
-        vocRefItemN = m.xpath(f"""/m:application/m:modules/m:module[
+        vocRefItemN = m.xpath(
+            f"""/m:application/m:modules/m:module[
             @name = '{mtype}'
         ]/m:moduleItem/m:vocabularyReference[
             @name='MulTypeVoc'
-        ]/m:vocabularyReferenceItem""")[0]
+        ]/m:vocabularyReferenceItem"""
+        )[0]
 
         attribs = vocRefItemN.attrib
-        attribs['id'] = new_id
+        attribs["id"] = new_id
         if "name" in attribs:
-            del attribs['name']
+            del attribs["name"]
 
-        print ("Writing to DDnewModule.xml")
+        print("Writing to DDnewModule.xml")
         m.toFile(path="DDnewModule.xml")
         return self._updateItem(
             mtype=mtype,
@@ -196,9 +198,7 @@ class OneFieldReplacer:
             data=m,
         )
 
-    def _updateItem(
-        self, *, mtype: str, mulId: int, data: Module
-    ):
+    def _updateItem(self, *, mtype: str, mulId: int, data: Module):
         """
         First attempt. Let's test module's upload_form and see if we can update an
         existing record
