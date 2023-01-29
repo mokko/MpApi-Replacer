@@ -42,9 +42,10 @@
 """
 
 import argparse
+import datetime
 from lxml import etree
 from mpapi.client import MpApi
-from mpapi.constants import NSMAP, credentials
+from mpapi.constants import credentials, NSMAP, parser
 from mpapi.module import Module
 from pathlib import Path
 import sys
@@ -78,16 +79,29 @@ class Replace2:
         self.cache = cache
         self.limit = limit
         self.ria = MpApi(baseURL=baseURL, user=user, pw=pw)
+        self.conf = self._init_conf(fn=conf, job=job)
 
-        with open(conf, "rb") as f:
+    def _init_conf(self, *, fn, job):
+        with open(fn, "rb") as f:
             conf = tomllib.load(f)
 
-        self.conf = conf[job]
+        job_conf = conf[job]
+        print(job_conf)
         for required in ["actions", "module", "savedQuery"]:
-            if not required in self.conf:
+            if not required in job_conf:
                 raise Exception(
                     f"ERROR: Required configuration value '{required}' missing!"
                 )
+
+        for action in job_conf["actions"]:  # minimal sanitization
+            # job.action = action.strip() how does this work?
+            job_conf["actions"][action]["old"] = job_conf["actions"][action][
+                "old"
+            ].strip()
+            job_conf["actions"][action]["new"] = job_conf["actions"][action][
+                "new"
+            ].strip()
+        return job_conf
 
     def _perItem(self, *, itemN, mtype: str) -> None:
         """
@@ -105,12 +119,22 @@ class Replace2:
              -> updateFieldInGroup, seems very unlikely
         (c) update whole rGrp or rGrpItem -> updateRepeatableGroup
 
-        Let's write this method so that I document my faile attempts
         """
+        # We could potentially turn item in application at a later stage
+        # then xpath expressions woulds be shorter, not too much gained
         mulId = itemN.xpath("@id")[0]  # there can be only one
-        itemM = Module(tree=itemN)
+        xml = f"""
+            <application xmlns="http://www.zetcom.com/ria/ws/module">
+                <modules>
+                    <module name="{mtype}"/>
+                </modules>
+            </application>"""
+        outer = etree.fromstring(xml, parser)
+        moduleN = outer.xpath("/m:application/m:modules/m:module", namespaces=NSMAP)[0]
+        moduleN.append(itemN)
+        itemM = Module(tree=outer)
         itemM.uploadForm()
-        print (f"{mtype} {mulId}")
+        print(f"{mtype} {mulId}")
         for action in self.conf["actions"]:
             old = self.conf["actions"][action]["old"]
             new = self.conf["actions"][action]["new"]
@@ -119,6 +143,8 @@ class Replace2:
                     self.MulTypeVoc(
                         itemM=itemM, old=old, new=new
                     )  # change data in place
+                elif action == "SMB-Freigabe":
+                    self.smbapproval(itemM=itemM, old=old, new=new)
                 else:
                     raise TypeError(f"Not yet implemented: {action}")
             else:
@@ -128,10 +154,11 @@ class Replace2:
         print(f"Writing to {fn}")
         itemM.toFile(path=fn)
         itemM.validate()
-        
+
         if self.act:
+            # currently updates even if nothing has changed
             request = self.ria.updateItem2(mtype=mtype, ID=mulId, data=itemM)
-            print(request)
+            print(f"Status code: {request.status_code}")
 
     # should probably not be here
     def _toString(self, node) -> None:
@@ -166,8 +193,8 @@ class Replace2:
 
     def replace(self, *, results: Module) -> None:
         """
-        Loops through all items in the search results calling the actions
-        described for the current job (i.e. in the toml config file).
+        Loops through all items in the search results calling the actions described
+        for the current job (i.e. in the toml config file).
         """
 
         mtype = self.conf["module"]
@@ -178,7 +205,91 @@ class Replace2:
             ]/m:moduleItem"""
 
         for itemN in results.xpath(xpath):
-            return self._perItem(itemN=itemN, mtype=mtype)
+            self._perItem(itemN=itemN, mtype=mtype)
+
+    def smbapproval(self, *, old: str, new: str, itemM: Module) -> None:
+        """
+        Rewrite the smb approval. If old == "None", we test that there is no approval
+        element and only add smb approal to the record if there was none before.
+
+        <repeatableGroup name="MulApprovalGrp" size="1">
+          <repeatableGroupItem id="10159204">
+            <vocabularyReference name="TypeVoc" id="58635" instanceName="MulApprovalTypeVgr">
+              <vocabularyReferenceItem id="1816002" name="SMB-digital">
+                <formattedValue language="en">SMB-digital</formattedValue>
+              </vocabularyReferenceItem>
+            </vocabularyReference>
+            <vocabularyReference name="ApprovalVoc" id="58634" instanceName="MulApprovalVgr">
+              <vocabularyReferenceItem id="4160027" name="Ja">
+                <formattedValue language="en">Ja</formattedValue>
+              </vocabularyReferenceItem>
+            </vocabularyReference>
+          </repeatableGroupItem>
+        </repeatableGroup>
+        """
+
+        if old == "None":
+            resL = itemM.xpath(
+                """/m:application/m:modules/m:module/m:moduleItem/m:repeatableGroup[
+                @name = 'MulApprovalGrp'
+            ]/m:repeatableGroupItem/m:vocabularyReference[
+                @name = 'TypeVoc'
+            ]/m:vocabularyReferenceItem[
+                @id = '1816002'
+            ]"""
+            )
+
+            if resL:
+                # SMB approval exists already, but user requested that old value is None,
+                # so we dont change anything in this record, i.e. return None now
+                print(
+                    "SMB approval is not None, but None requested, so not changing approval"
+                )
+                return
+            else:
+                print("Need to create a new MulApprovalGrp for SMB-Digital")
+        elif old == "Ja":
+            resL = itemM.xpath(
+                """/m:application/m:modules/m:module/m:moduleItem/m:repeatableGroup[
+                @name = 'MulApprovalGrp'
+            ]/m:repeatableGroupItem/m:vocabularyReference[
+                @name = 'TypeVoc'
+            ]/m:vocabularyReferenceItem[
+                @id = '1816002'
+            ]"""
+            )
+
+        known_values = {
+            "Ja": 4160027,
+            "SMB-Digital": 1816002,
+        }
+
+        # rGrp=MulApprovalGrp could already exist
+        # let's assume at first that MulApprovalGrp doesn't already exist
+        if new == "Ja":
+            today = datetime.date.today()
+            xml = f"""
+                <repeatableGroup xmlns="http://www.zetcom.com/ria/ws/module" name="MulApprovalGrp">
+                  <repeatableGroupItem> 
+                    <dataField dataType="Varchar" name="ModifiedByTxt">
+                      <value>EM_SB</value>
+                    </dataField>
+                    <dataField dataType="Date" name="ModifiedDateDat">
+                      <value>{today}</value>
+                    </dataField>
+                    <vocabularyReference name="TypeVoc" id="58635" instanceName="MulApprovalTypeVgr">
+                      <vocabularyReferenceItem id="1816002"/>
+                    </vocabularyReference>
+                    <vocabularyReference name="ApprovalVoc" id="58634" instanceName="MulApprovalVgr">
+                      <vocabularyReferenceItem id="4160027"/>
+                    </vocabularyReference>
+                  </repeatableGroupItem>
+                </repeatableGroup>
+            """
+
+            itemN = itemM.xpath("/m:application/m:modules/m:module/m:moduleItem")[0]
+            mulApprovalGrp = etree.fromstring(xml, parser)
+            itemN.append(mulApprovalGrp)
 
     def MulTypeVoc(self, *, old: str, new: str, itemM: Module) -> None:
         """
@@ -201,13 +312,9 @@ class Replace2:
         known_values = {
             "3 D": 1816105,
             "Dia": 1816113,
-            "Digitale Aufnahme": 31041, 
-            "Scan":1816145,
+            "Digitale Aufnahme": 31041,
+            "Scan": 1816145,
         }
-
-        #minimal sanitization
-        old = old.strip()
-        new = new.strip()
 
         try:
             old_id = known_values[old]
@@ -219,7 +326,6 @@ class Replace2:
         except:
             raise TypeError("Error: Unknown MulTypeVoc value '{new}'")
 
-
         vocRefItemL = itemM.xpath(
             f"""/m:application/m:modules/m:module/m:moduleItem/m:vocabularyReference[
                 @name = 'MulTypeVoc'
@@ -229,13 +335,14 @@ class Replace2:
         )
 
         if vocRefItemL:
-            # only change anything if this item actually has search value
+            # only change data if this item actually has the search value
             attribs = vocRefItemL[0].attrib
             attribs["id"] = str(new_id)
             if "name" in attribs:
                 del attribs["name"]
         else:
             print(f"MulTypeVoc: search value '{old}' not found")
+
 
 if __name__ == "__main__":
     pass
