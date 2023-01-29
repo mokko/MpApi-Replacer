@@ -110,22 +110,25 @@ class Replace2:
         mulId = itemN.xpath("@id")[0]  # there can be only one
         itemM = Module(tree=itemN)
         itemM.uploadForm()
+        print (f"{mtype} {mulId}")
         for action in self.conf["actions"]:
             old = self.conf["actions"][action]["old"]
             new = self.conf["actions"][action]["new"]
             if mtype == "Multimedia":
-                if action == "MulTypeVoc":
+                if action == "Typ":
                     self.MulTypeVoc(
-                        itemM=itemM, old_value=old, new_value=new
+                        itemM=itemM, old=old, new=new
                     )  # change data in place
                 else:
                     raise TypeError(f"Not yet implemented: {action}")
             else:
                 raise TypeError(f"Not yet implemented: {action}")
-        fn = "afterReplace.temp.xml"
+
+        fn = f"{mtype}-{mulId}.afterReplace.xml"
         print(f"Writing to {fn}")
         itemM.toFile(path=fn)
-
+        itemM.validate()
+        
         if self.act:
             request = self.ria.updateItem2(mtype=mtype, ID=mulId, data=itemM)
             print(request)
@@ -177,7 +180,7 @@ class Replace2:
         for itemN in results.xpath(xpath):
             return self._perItem(itemN=itemN, mtype=mtype)
 
-    def MulTypeVoc(self, *, old_value: str, new_value: str, itemM: Module) -> None:
+    def MulTypeVoc(self, *, old: str, new: str, itemM: Module) -> None:
         """
         Rewrite itemN data according to action described in toml file.
 
@@ -195,22 +198,44 @@ class Replace2:
         matching value -> not anymore. Let's be more generic
         """
 
-        # in the future we might allow text values in the toml file
-        known_values = {31041: "Digitale Aufnahme", 1816145: "Scan"}
+        known_values = {
+            "3 D": 1816105,
+            "Dia": 1816113,
+            "Digitale Aufnahme": 31041, 
+            "Scan":1816145,
+        }
 
-        vocRefItemN = itemM.xpath(
+        #minimal sanitization
+        old = old.strip()
+        new = new.strip()
+
+        try:
+            old_id = known_values[old]
+        except:
+            raise TypeError("Error: Unknown MulTypeVoc value '{old}'")
+
+        try:
+            new_id = known_values[new]
+        except:
+            raise TypeError("Error: Unknown MulTypeVoc value '{new}'")
+
+
+        vocRefItemL = itemM.xpath(
             f"""/m:application/m:modules/m:module/m:moduleItem/m:vocabularyReference[
                 @name = 'MulTypeVoc'
             ]/m:vocabularyReferenceItem[
-                @id = {old_value}
+                @id = {old_id}
             ]"""
-        )[0]
+        )
 
-        attribs = vocRefItemN.attrib
-        attribs["id"] = str(new_value)
-        if "name" in attribs:
-            del attribs["name"]
-
+        if vocRefItemL:
+            # only change anything if this item actually has search value
+            attribs = vocRefItemL[0].attrib
+            attribs["id"] = str(new_id)
+            if "name" in attribs:
+                del attribs["name"]
+        else:
+            print(f"MulTypeVoc: search value '{old}' not found")
 
 if __name__ == "__main__":
     pass
