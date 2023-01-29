@@ -89,45 +89,6 @@ class Replace2:
                     f"ERROR: Required configuration value '{required}' missing!"
                 )
 
-    def search(self):
-        """
-        Either make a new query to RIA or return the cached results from previous run
-        (in cache mode).
-
-        It's the user's the responsibility to decide when they want to make a new query.
-
-        Returns Module data potentially with many items/records.
-        """
-        qId = self.conf["savedQuery"]
-        fn = f"savedQuery-{qId}.xml"
-        if self.cache:
-            print(f"* Getting search results from file cache '{fn}'")
-            m = Module(file=fn)
-        else:
-            print(f"* New query ID {qId} {self.conf['module']}")
-            m = self.ria.runSavedQuery3(
-                ID=qId, Type=self.conf["module"], limit=self.limit
-            )
-            print(f"* Writing search results to {fn}")
-            m.toFile(path=fn)  # overwrites old files
-        return m
-
-    def replace(self, *, results: Module) -> None:
-        """
-        Loops through all items in the search results calling the actions
-        described for the current job (i.e. in the toml config file).
-        """
-
-        mtype = self.conf["module"]
-
-        xpath = f"""
-            /m:application/m:modules/m:module[
-                @name = '{mtype}'
-            ]/m:moduleItem"""
-
-        for itemN in results.xpath(xpath):
-            return self._perItem(itemN=itemN, mtype=mtype)
-
     def _perItem(self, *, itemN, mtype: str) -> None:
         """
         Process each individual item (=record), expects itemN as a node
@@ -169,6 +130,53 @@ class Replace2:
             request = self.ria.updateItem2(mtype=mtype, ID=mulId, data=itemM)
             print(request)
 
+    # should probably not be here
+    def _toString(self, node) -> None:
+        return etree.tostring(node, pretty_print=True, encoding="unicode")
+
+    #
+    # public
+    #
+
+    def search(self):
+        """
+        Either make a new query to RIA or return the cached results from previous run
+        (in cache mode).
+
+        It's the user's the responsibility to decide when they want to make a new query.
+
+        Returns Module data potentially with many items/records.
+        """
+        qId = self.conf["savedQuery"]
+        fn = f"savedQuery-{qId}.xml"
+        if self.cache:
+            print(f"* Getting search results from file cache '{fn}'")
+            m = Module(file=fn)
+        else:
+            print(f"* New query ID {qId} {self.conf['module']}")
+            m = self.ria.runSavedQuery3(
+                ID=qId, Type=self.conf["module"], limit=self.limit
+            )
+            print(f"* Writing search results to {fn}")
+            m.toFile(path=fn)  # overwrites old files
+        return m
+
+    def replace(self, *, results: Module) -> None:
+        """
+        Loops through all items in the search results calling the actions
+        described for the current job (i.e. in the toml config file).
+        """
+
+        mtype = self.conf["module"]
+
+        xpath = f"""
+            /m:application/m:modules/m:module[
+                @name = '{mtype}'
+            ]/m:moduleItem"""
+
+        for itemN in results.xpath(xpath):
+            return self._perItem(itemN=itemN, mtype=mtype)
+
     def MulTypeVoc(self, *, old_value: str, new_value: str, itemM: Module) -> None:
         """
         Rewrite itemN data according to action described in toml file.
@@ -187,6 +195,9 @@ class Replace2:
         matching value -> not anymore. Let's be more generic
         """
 
+        # in the future we might allow text values in the toml file
+        known_values = {31041: "Digitale Aufnahme", 1816145: "Scan"}
+
         vocRefItemN = itemM.xpath(
             f"""/m:application/m:modules/m:module/m:moduleItem/m:vocabularyReference[
                 @name = 'MulTypeVoc'
@@ -199,10 +210,6 @@ class Replace2:
         attribs["id"] = str(new_value)
         if "name" in attribs:
             del attribs["name"]
-
-    # should probably not be here
-    def _toString(self, node) -> None:
-        return etree.tostring(node, pretty_print=True, encoding="unicode")
 
 
 if __name__ == "__main__":
