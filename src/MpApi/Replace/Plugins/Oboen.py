@@ -1,6 +1,6 @@
 import datetime
 from mpapi.search import Search
-from mpapi.replace.BoxerAufstand import BoxerAufstand
+from MpApi.Replace.Plugins.BoxerAufstand import BoxerAufstand
 
 """
 Set SMBFreigabe for all objects in group with id 117396
