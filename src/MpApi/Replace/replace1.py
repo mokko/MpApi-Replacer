@@ -193,9 +193,21 @@ class Replace1:
 if __name__ == "__main__":
     import argparse
 
-    if Path(credentials).exists():
-        with open(credentials) as f:
-            exec(f.read())
+    try:
+        import tomllib  # new in Python v3.11
+    except ModuleNotFoundError:
+        import tomli as tomllib  # < Python v3.11
+
+    cred_fn = Path.home() / ".ria"
+    if not cred_fn.exists():
+        raise SyntaxError(f"RIA Credentials not found at {cred_fn}")
+
+    with open(cred_fn, "rb") as f:
+        cred = tomllib.load(f)
+    user = cred["user"]
+    pw = cred["pw"]
+    baseURL = cred["baseURL"]
+
 
     # credentials = "emem1.py"  # in pwd
     parser = argparse.ArgumentParser(description="Command line frontend for Replace.py")

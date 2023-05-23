@@ -1,8 +1,26 @@
 """
-    Perhaps we need a new replacer. Similar command line interface
+    Perhaps we need a new replacer. This one takes saved queries as input and only
+    replaces one field. Maybe we can call that atomic replacing. Similar command line 
+    interface as replacer1.
+
+    It's very possible that RIA will let me only act on certain fields and not on others.
+    I assume I can't change SystemFields.
     
-    replacer -v --version
-    replacer -h --help
+    It should be easy to change dataFields. Am I right to assume that dataFields can only
+    0 or 1 value?
+    dataFields
+ 
+    conf.toml
+    jobname:
+        query 12345
+        module Object
+        field mulTypeVoc
+        search 31041 # image
+        replace 31042 # fictional
+    
+    replacer2 -v --version
+    replacer2 -h --help
+    replacer2
     -a --act: actually do the changes
     -c --cache: read search results from a file (functions as a cache, used to be called lazy)
     -j --job: job name

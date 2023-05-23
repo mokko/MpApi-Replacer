@@ -1,12 +1,13 @@
 import datetime
 from mpapi.search import Search
-from mpapi.replace.WestFreigabe import WestFreigabe
+from MpApi.Replace.Plugins.WestFreigabe import WestFreigabe
 
 
 class FreigabeAndrea(WestFreigabe):
     def Input(self):
         groups = {  # Wechsel 2022-03
-            "Andrea Rio Negro": "29636",
+            #"Andrea Rio Negro": "29636",
+            "Flavia": 31393
         }
         return groups
 
