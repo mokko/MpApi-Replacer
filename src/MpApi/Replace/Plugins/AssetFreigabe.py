@@ -25,7 +25,7 @@ AKu-Primärverpackungen
 import datetime
 
 from mpapi.search import Search
-from mpapi.replace.DigiP import DigiP
+from MpApi.Replace.Plugins.DigiP import DigiP
 
 
 class AssetFreigabe(DigiP):

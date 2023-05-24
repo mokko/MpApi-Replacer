@@ -27,8 +27,6 @@ pw = cred["pw"]
 baseURL = cred["baseURL"]
 
 
-
-
 def replace1():
     # credentials = "emem1.py"  # in pwd
     parser = argparse.ArgumentParser(description="Command line frontend for Replace.py")

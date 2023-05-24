@@ -17,10 +17,10 @@ do
 import datetime
 
 from mpapi.search import Search
-from MpApi.Replace.Plugins.WestFreigabe import AssetFreigabe
+from MpApi.Replace.Plugins.AssetFreigabe import AssetFreigabe
 
 
-class AssetAndrea(AssetFreigabe):
+class AssetFlavia(AssetFreigabe):
     def search(self, Id, limit=-1):
         query = Search(module="Multimedia", limit=limit)
         query.AND()
@@ -35,7 +35,7 @@ class AssetAndrea(AssetFreigabe):
         query.addCriterion(
             operator="equalsField",
             field="MulObjectRef.ObjObjectGroupsRef.__id",
-            value="29636",  # Andreas Gruppe
+            value="31393",  # Gruppe
         )
 
         # 3rd criteria

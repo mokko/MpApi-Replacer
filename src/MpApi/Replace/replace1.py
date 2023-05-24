@@ -208,7 +208,6 @@ if __name__ == "__main__":
     pw = cred["pw"]
     baseURL = cred["baseURL"]
 
-
     # credentials = "emem1.py"  # in pwd
     parser = argparse.ArgumentParser(description="Command line frontend for Replace.py")
     parser.add_argument(
