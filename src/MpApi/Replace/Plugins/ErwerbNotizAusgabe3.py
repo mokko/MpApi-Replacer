@@ -3,8 +3,9 @@ import importlib
 from lxml import etree
 from mpapi.search import Search
 from mpapi.module import Module
-from mpapi.replace.ErwerbNotizAusgabe import ErwerbNotizAusgabe
+from MpApi.Replace.Plugins.ErwerbNotizAusgabe import ErwerbNotizAusgabe
 import re
+
 
 # from Replace.ErwerbNotizAusgabe import ErwerbNotizAusgabe
 
@@ -63,7 +64,8 @@ class ErwerbNotizAusgabe3(ErwerbNotizAusgabe):  # inheritance!
             # "m43Schlagintweit": 30425,
             # "m25KeramikII": 313398,
             # "m43AnnaNeu": 318397,
-            "m53": 319397
+            # "m53": 319397
+            "Flavia": 31393
         }
         return groups
 
