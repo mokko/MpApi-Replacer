@@ -1,12 +1,9 @@
 """An Unofficial Client for the MuseumPlus API"""
 
-__version__ = "0.0.2"
+__version__ = "0.0.3"  # repairing flit
 import argparse
 
-# from mpapi.client import MpApi
 from mpapi.constants import get_credentials
-
-# from mpapi.module import Module
 from pathlib import Path
 from MpApi.Replace.replace1 import Replace1
 from MpApi.Replace.replace2 import Replace2
@@ -15,7 +12,6 @@ user, pw, baseURL = get_credentials()
 
 
 def replace1():
-    # credentials = "emem1.py"  # in pwd
     parser = argparse.ArgumentParser(description="Command line frontend for Replace.py")
     parser.add_argument(
         "-l",
@@ -36,9 +32,9 @@ def replace1():
         "-L", "--Limit", help="set limit for initial search", default="-1"
     )
     args = parser.parse_args()
-    replacer = Replace1(baseURL=baseURL, pw=pw, user=user, lazy=args.lazy, act=args.act)
-    plugin = replacer.job(plugin=args.job)
-    replacer.runPlugin(plugin=plugin, limit=args.Limit)  # set to -1 for production
+    r = Replace1(baseURL=baseURL, pw=pw, user=user, lazy=args.lazy, act=args.act)
+    plugin = r.job(plugin=args.job)
+    r.runPlugin(plugin=plugin, limit=args.Limit)  # set to -1 for production
 
 
 def replacer2():

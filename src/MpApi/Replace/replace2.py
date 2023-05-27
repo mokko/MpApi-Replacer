@@ -63,16 +63,15 @@ import argparse
 import datetime
 from lxml import etree
 from mpapi.client import MpApi
-from mpapi.constants import credentials, NSMAP, parser
+from mpapi.constants import get_credentials, NSMAP, parser
 from mpapi.module import Module
 from pathlib import Path
 import sys
-import tomllib
 
-
-if Path(credentials).exists():
-    with open(credentials) as f:
-        exec(f.read())
+try:
+    import tomllib  # Python v3.11
+except ModuleNotFoundError:
+    import tomli as tomllib  # < Python v3.11
 
 
 class ConfigError(Exception):

@@ -54,7 +54,7 @@ import importlib
 
 from mpapi.sar import Sar
 from mpapi.client import MpApi
-from mpapi.constants import NSMAP, credentials
+from mpapi.constants import NSMAP, get_credentials
 from mpapi.module import Module
 from mpapi.search import Search
 from typing import Any, Callable, Iterable
@@ -188,47 +188,3 @@ class Replace1:
             print(f" writing response to temp file: {out_fn}")
             r.toFile(path=out_fn)
             self.ET = r.toET()
-
-
-if __name__ == "__main__":
-    import argparse
-
-    try:
-        import tomllib  # new in Python v3.11
-    except ModuleNotFoundError:
-        import tomli as tomllib  # < Python v3.11
-
-    cred_fn = Path.home() / ".ria"
-    if not cred_fn.exists():
-        raise SyntaxError(f"RIA Credentials not found at {cred_fn}")
-
-    with open(cred_fn, "rb") as f:
-        cred = tomllib.load(f)
-    user = cred["user"]
-    pw = cred["pw"]
-    baseURL = cred["baseURL"]
-
-    # credentials = "emem1.py"  # in pwd
-    parser = argparse.ArgumentParser(description="Command line frontend for Replace.py")
-    parser.add_argument(
-        "-l",
-        "--lazy",
-        help="lazy modes reads search results from a file cache, for debugging",
-        action="store_true",
-    )
-    parser.add_argument(
-        "-a",
-        "--act",
-        help="include action, without it only show what would be changed",
-        action="store_true",
-    )
-    parser.add_argument(
-        "-j", "--job", help="load a plugin and use that code", required=True
-    )
-    parser.add_argument(
-        "-L", "--Limit", help="set limit for initial search", default="-1"
-    )
-    args = parser.parse_args()
-    replacer = Replace1(baseURL=baseURL, pw=pw, user=user, lazy=args.lazy, act=args.act)
-    plugin = replacer.job(plugin=args.job)
-    replacer.runPlugin(plugin=plugin, limit=args.Limit)  # set to -1 for production
