@@ -1,60 +1,34 @@
 """
-    Perhaps we need a new replacer. This one takes saved queries as input and only
-    replaces one field. Maybe we can call that atomic replacing. Similar command line 
-    interface as replacer1.
+    Perhaps we need a new replacer. Replacer2 is dfferent from replacer1 in that it 
+    - takes saved queries as input and 
+    - sends update requests on a per field basis instead of global documents
 
-    It's very possible that RIA will let me only act on certain fields and not on others.
-    I assume I can't change SystemFields.
+    The command-line interface remains similar.
+
+    It's very possible that RIA will let me only change certain field types and not on 
+    others. For example, I assume I can't change any or most SystemFields. I hope we'll
+    find out.
     
-    It should be easy to change dataFields. Am I right to assume that dataFields can only
-    0 or 1 value?
-    dataFields
-
-    conf.toml
-    ajob:
-        query 12345
-        module Object
-        field mulTypeVoc
-        search 31041 # image
-        replace 31042 # fictional
+    new toml format describing a change job
+        savedQuery = 538067   # p-TestAssets 
+        module = "Multimedia" # Assets
+        [[replace]]
+        field = "systemField:__orgUnit"
+        search = "Scan"
+        replace = "Digitale Aufnahme"
     
-    replacer2 -job ajob -a
+    replacer2 -a -c
     
-    init
-    - loads toml config file with descripion of available/defined jobs
-    - executes one of the jobs
-    search
-    - executes a saved query
-    - saves resulting xml on disk for debugging
-    - with -c take search results from file cache instead of querying ria again
-    replace
-    - loop thru results
-    - if and only if search value matches old value, replace old value with new one
-
-    It seems like we're updating the whole record anyways. So we need to teach this 
-    script the individual fields
-        
-
-    systemField -> except __orgUnit makes no sense to change them
-    dataField
-    virtualField -> cant be changed
-
-    <vocabularyReference name="MulTypeVoc" id="30341" instanceName="MulTypeVgr">
-      <vocabularyReferenceItem id="31041" name="image">
-        <formattedValue language="de">Digitale Aufnahme</formattedValue>
-      </vocabularyReferenceItem>
-    </vocabularyReference>
-
-    <vocabularyReference name="MulTypeVoc" instanceName="MulTypeVgr">
-      <vocabularyReferenceItem id="31041"/>
-    </vocabularyReference>
-    
-    Scan = 1816145
+    Datum -> dataField:MulDateTxt
+    Typ Details -> dataField:MulTypeTxt
+    Inh./Ans -> dateField:MulSubjectTxt
+    Bereich -> systemField:__orgUnit
     
 """
 
 import argparse
 import datetime
+from copy import deepcopy
 from lxml import etree
 from mpapi.client import MpApi
 from mpapi.constants import get_credentials, NSMAP, parser
@@ -89,7 +63,7 @@ class Replace2:
         self.limit = limit
         self.ria = MpApi(baseURL=baseURL, user=user, pw=pw)
         self.conf = self._init_conf(conf_fn=conf_fn)
-        print(self.conf)
+        print(f"Logged in as {user}")
 
     def search(self):
         """
@@ -118,17 +92,23 @@ class Replace2:
         """
         Loops through all items in the search results calling the actions described
         for the current job (i.e. in the toml config file).
+
+        There are only 6 field types in RIA. We'll test them in the order of complexity
+            1. dataField
+            2. systemField (__orgUnit)
+            3. vocabularyReference/repeatableGroup
+            4. composite
+        We will not attempt to change virtualField.
         """
 
         mtype = self.conf["module"]
 
-        xpath = f"""
-            /m:application/m:modules/m:module[
-                @name = '{mtype}'
-            ]/m:moduleItem"""
-
-        for itemN in search_results.xpath(xpath):
-            self._perItem(itemN=itemN, mtype=mtype)
+        for itemN in search_results.iter(module=mtype):
+            item2 = deepcopy(itemN)  # not quite sure why i need a copy
+            ID = self._id_from_item(item2)
+            mtype = self.conf["module"]
+            print(f"* {mtype} {ID}")
+            self._replacePerItem(itemN=item2)
 
     #
     # private
@@ -145,8 +125,98 @@ class Replace2:
                 )
         return conf
 
+    def _replacePerItem(self, *, itemN) -> None:
+        for action in self.conf["replace"]:
+            field_type, field = [x.strip() for x in action["field"].split(":")]
+            search = action["search"]
+            replace = action["replace"]
+            print(f"** {field_type}: {field}\t{search} -> {replace}")
+            if field_type == "dataField":
+                self._replace_dataField(
+                    field=field, itemN=itemN, search=search, replace=replace
+                )
+            elif field_type == "repeatableGroup":
+                print("\trepeatableGroup not implemented yet")
+            elif field_type == "systemField":
+                self._replace_systemField(
+                    field=field, itemN=itemN, search=search, replace=replace
+                )
+            elif field_type == "vocabularyReference":
+                print("\tvocabularyReference not implemented yet")
+            elif field_type == "composite":
+                print("\tcomposite not implemented yet")
+            elif field_type == "virtualField":
+                raise SyntaxError(f"ERROR: No replacements for virtualFields!")
+            else:
+                raise SyntaxError(f"ERROR: Unknown field type: {field_type}")
+
+    def _replace_dataField(
+        self, *, field: str, itemN, search: str, replace: str
+    ) -> None:
+        mtype = self.conf["module"]
+        ID = self._id_from_item(itemN)
+        # print (f"field {field}")
+        # print(self._toString(itemN))
+        field_content = itemN.xpath(
+            f"/m:moduleItem/m:dataField[@name = '{field}']/m:value/text()",
+            namespaces=NSMAP,
+        )[0]
+        if field_content == search:
+            print(f"\tsearch found")
+            if self.act:
+                print("\tquering RIA for change")
+                r = self.ria.updateField2(
+                    mtype=mtype, ID=ID, dataField=field, value=replace
+                )
+                print("\t" + r)
+            else:
+                print("\tnot acting")
+        else:
+            print(f"\tsearch NOT found")
+
+    def _replace_systemField(
+        self, *, field: str, itemN, search: str, replace: str
+    ) -> None:
+        raise SyntaxError("systemFields dont work!")
+        if field != "__orgUnit":
+            raise SyntaxError("Only systemField:__orgUnit allowed!")
+        mtype = self.conf["module"]
+        ID = self._id_from_item(itemN)
+        field_content = itemN.xpath(
+            f"/m:moduleItem/m:systemField[@name = '{field}']/m:value/text()",
+            namespaces=NSMAP,
+        )[0]
+        if field_content == search:
+            print(f"\tsearch found")
+            if self.act:
+                print("quering RIA for change")
+                xml = f"""
+                    <application xmlns="http://www.zetcom.com/ria/ws/module">
+                        <modules>
+                            <module name="{mtype}">
+                                <moduleItem id="{ID}">
+                                    <systemField name="{field}"/>
+                                </moduleItem>
+                            </module>
+                        </modules>
+                    </application>                
+                """
+                print(xml)
+                r = self.ria.updateField(module=mtype, id=ID, dataField=field, xml=xml)
+                print(r)
+            else:
+                print("\tnot acting")
+
+    # should be in a data oriented class
+    def _id_from_item(self, itemN) -> int:
+        """
+        Returns id of the first moduleItem as int.
+        """
+        return int(itemN.xpath("/m:moduleItem/@id", namespaces=NSMAP)[0])
+
     def _perItem(self, *, itemN, mtype: str) -> None:
         """
+        OBSOLETE
         Process individual items (=record), expects itemN as a node
 
         This is the second step of the actual replacement process.
