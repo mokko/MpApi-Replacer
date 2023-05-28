@@ -9,22 +9,16 @@
     It should be easy to change dataFields. Am I right to assume that dataFields can only
     0 or 1 value?
     dataFields
- 
+
     conf.toml
-    jobname:
+    ajob:
         query 12345
         module Object
         field mulTypeVoc
         search 31041 # image
         replace 31042 # fictional
     
-    replacer2 -v --version
-    replacer2 -h --help
-    replacer2
-    -a --act: actually do the changes
-    -c --cache: read search results from a file (functions as a cache, used to be called lazy)
-    -j --job: job name
-    -l --limit: limit number of records
+    replacer2 -job ajob -a
     
     init
     - loads toml config file with descripion of available/defined jobs
@@ -84,45 +78,76 @@ class Replace2:
         *,
         act: bool = False,
         baseURL: str,
-        conf: str = "replace2.toml",
-        job: str,
+        conf_fn: str,
         cache: bool = False,
         limit: int = -1,
         pw: str,
         user: str,
     ):
         self.act = act
-        self.job = job
         self.cache = cache
         self.limit = limit
         self.ria = MpApi(baseURL=baseURL, user=user, pw=pw)
-        self.conf = self._init_conf(fn=conf, job=job)
+        self.conf = self._init_conf(conf_fn=conf_fn)
+        print(self.conf)
 
-    def _init_conf(self, *, fn, job):
-        with open(fn, "rb") as f:
+    def search(self):
+        """
+        Either make a new query to RIA or return the cached results from previous run
+        (in cache mode).
+
+        It's the user's the responsibility to decide when they want to make a new query.
+
+        Returns Module data potentially with many items/records.
+        """
+        qId = self.conf["savedQuery"]
+        fn = f"savedQuery-{qId}.xml"
+        if self.cache:
+            print(f"* Getting search results from file cache '{fn}'")
+            m = Module(file=fn)
+        else:
+            print(f"* New query ID {qId} {self.conf['module']}")
+            m = self.ria.runSavedQuery3(
+                ID=qId, Type=self.conf["module"], limit=self.limit
+            )
+            print(f"* Writing search results to {fn}")
+            m.toFile(path=fn)  # overwrites old files
+        return m
+
+    def replace(self, *, search_results: Module) -> None:
+        """
+        Loops through all items in the search results calling the actions described
+        for the current job (i.e. in the toml config file).
+        """
+
+        mtype = self.conf["module"]
+
+        xpath = f"""
+            /m:application/m:modules/m:module[
+                @name = '{mtype}'
+            ]/m:moduleItem"""
+
+        for itemN in search_results.xpath(xpath):
+            self._perItem(itemN=itemN, mtype=mtype)
+
+    #
+    # private
+    #
+
+    def _init_conf(self, *, conf_fn):
+        with open(conf_fn, "rb") as f:
             conf = tomllib.load(f)
 
-        job_conf = conf[job]
-        print(job_conf)
-        for required in ["actions", "module", "savedQuery"]:
-            if not required in job_conf:
+        for required in ["module", "savedQuery", "replace"]:
+            if not required in conf:
                 raise Exception(
                     f"ERROR: Required configuration value '{required}' missing!"
                 )
-
-        for action in job_conf["actions"]:  # minimal sanitization
-            # job.action = action.strip() how does this work?
-            job_conf["actions"][action]["old"] = job_conf["actions"][action][
-                "old"
-            ].strip()
-            job_conf["actions"][action]["new"] = job_conf["actions"][action][
-                "new"
-            ].strip()
-        return job_conf
+        return conf
 
     def _perItem(self, *, itemN, mtype: str) -> None:
         """
-        Process each individual item (=record), expects itemN as a node
+        Process individual items (=record), expects itemN as a node
 
         This is the second step of the actual replacement process.
 
@@ -137,9 +162,7 @@ class Replace2:
         (c) update whole rGrp or rGrpItem -> updateRepeatableGroup
 
         """
-        # We could potentially turn item in application at a later stage
-        # then xpath expressions woulds be shorter, not too much gained
-        mulId = itemN.xpath("@id")[0]  # there can be only one
+        Id = itemN.xpath("@id")[0]  # there can be only one
         xml = f"""
             <application xmlns="http://www.zetcom.com/ria/ws/module">
                 <modules>
@@ -180,49 +203,6 @@ class Replace2:
     # should probably not be here
     def _toString(self, node) -> None:
         return etree.tostring(node, pretty_print=True, encoding="unicode")
-
-    #
-    # public
-    #
-
-    def search(self):
-        """
-        Either make a new query to RIA or return the cached results from previous run
-        (in cache mode).
-
-        It's the user's the responsibility to decide when they want to make a new query.
-
-        Returns Module data potentially with many items/records.
-        """
-        qId = self.conf["savedQuery"]
-        fn = f"savedQuery-{qId}.xml"
-        if self.cache:
-            print(f"* Getting search results from file cache '{fn}'")
-            m = Module(file=fn)
-        else:
-            print(f"* New query ID {qId} {self.conf['module']}")
-            m = self.ria.runSavedQuery3(
-                ID=qId, Type=self.conf["module"], limit=self.limit
-            )
-            print(f"* Writing search results to {fn}")
-            m.toFile(path=fn)  # overwrites old files
-        return m
-
-    def replace(self, *, results: Module) -> None:
-        """
-        Loops through all items in the search results calling the actions described
-        for the current job (i.e. in the toml config file).
-        """
-
-        mtype = self.conf["module"]
-
-        xpath = f"""
-            /m:application/m:modules/m:module[
-                @name = '{mtype}'
-            ]/m:moduleItem"""
-
-        for itemN in results.xpath(xpath):
-            self._perItem(itemN=itemN, mtype=mtype)
 
     def smbapproval(self, *, old: str, new: str, itemM: Module) -> None:
         """
@@ -359,7 +339,3 @@ class Replace2:
                 del attribs["name"]
         else:
             print(f"MulTypeVoc: search value '{old}' not found")
-
-
-if __name__ == "__main__":
-    pass

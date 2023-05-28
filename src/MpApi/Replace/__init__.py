@@ -37,7 +37,7 @@ def replace1():
     r.runPlugin(plugin=plugin, limit=args.Limit)  # set to -1 for production
 
 
-def replacer2():
+def replace2():
     parser = argparse.ArgumentParser(
         description="Command line frontend for Replace2.py"
     )
@@ -54,7 +54,10 @@ def replacer2():
         action="store_true",
     )
     parser.add_argument(
-        "-j", "--job", help="load a job config 'replace2.toml' and execute it"
+        "-j",
+        "--job",
+        default="replace2.toml",
+        help="load a job config 'replace2.toml' and execute it",
     )
     parser.add_argument(
         "-l", "--limit", help="set limit for initial search", default="-1"
@@ -73,13 +76,15 @@ def replacer2():
     elif not args.job:
         raise SystemExit("--job|-j required")
 
-    replacer = Replace2(
+    r = Replace2(
         act=args.act,
         baseURL=baseURL,
-        job=args.job,
+        conf_fn=args.job,
         cache=args.cache,
         pw=pw,
         user=user,
     )
-    dataM = replacer.search()
-    replacer.replace(results=dataM)
+    print("Searching...")
+    dataM = r.search()
+    print("Replacing...")
+    r.replace(search_results=dataM)
