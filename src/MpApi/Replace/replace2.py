@@ -112,7 +112,7 @@ class Replace2:
             ID = self._id_from_item(item2)
             mtype = self.conf["module"]
             print(f"* {mtype} {ID}")
-            self._replacePerItem(itemN=item2)
+            self._replace_per_item(itemN=item2)
 
     #
     # private
@@ -129,7 +129,31 @@ class Replace2:
                 )
         return conf
 
-    def _replacePerItem(self, *, itemN) -> None:
+    def _replace_dataField(
+        self, *, field: str, itemN, search: str, replace: str
+    ) -> None:
+        mtype = self.conf["module"]
+        ID = self._id_from_item(itemN)
+        # print (f"field {field}")
+        # print(self._toString(itemN))
+        field_content = itemN.xpath(
+            f"/m:moduleItem/m:dataField[@name = '{field}']/m:value/text()",
+            namespaces=NSMAP,
+        )[0]
+        if field_content == search:
+            print(f"\tsearch found")
+            if self.act:
+                print("\tquering RIA for change")
+                r = self.ria.updateField2(
+                    mtype=mtype, ID=ID, dataField=field, value=replace
+                )
+                print("\t" + r)
+            else:
+                print("\tnot acting")
+        else:
+            print(f"\tsearch NOT found")
+
+    def _replace_per_item(self, *, itemN) -> None:
         for action in self.conf["replace"]:
             field_type, field = [x.strip() for x in action["field"].split(":")]
             search = action["search"]
@@ -156,29 +180,42 @@ class Replace2:
             else:
                 raise SyntaxError(f"ERROR: Unknown field type: {field_type}")
 
-    def _replace_dataField(
+    def _replace_systemField(
         self, *, field: str, itemN, search: str, replace: str
     ) -> None:
+        raise SyntaxError("systemField doesn't work!")
+
+        if field != "__orgUnit":
+            raise SyntaxError("Only systemField:__orgUnit allowed!")
         mtype = self.conf["module"]
         ID = self._id_from_item(itemN)
-        # print (f"field {field}")
-        # print(self._toString(itemN))
         field_content = itemN.xpath(
-            f"/m:moduleItem/m:dataField[@name = '{field}']/m:value/text()",
+            f"/m:moduleItem/m:systemField[@name = '{field}']/m:value/text()",
             namespaces=NSMAP,
         )[0]
+        xml = f"""
+            <application xmlns="http://www.zetcom.com/ria/ws/module">
+                <modules>
+                    <module name="{mtype}">
+                        <moduleItem id="{ID}">
+                            <systemField name="{field}">
+                                 <value>{replace}</value>
+                            </systemField>
+                        </moduleItem>
+                    </module>
+                </modules>
+            </application>                
+        """
+
         if field_content == search:
             print(f"\tsearch found")
             if self.act:
-                print("\tquering RIA for change")
-                r = self.ria.updateField2(
-                    mtype=mtype, ID=ID, dataField=field, value=replace
-                )
+                print("quering RIA for change")
+                print(xml)
+                r = self.ria.updateField(module=mtype, id=ID, dataField=field, xml=xml)
                 print("\t" + r)
             else:
                 print("\tnot acting")
-        else:
-            print(f"\tsearch NOT found")
 
     def _replace_vocabularyReference(
         self, *, field: str, itemN, search: str, replace: str
@@ -253,46 +290,11 @@ class Replace2:
         else:
             print(f"\tsearch NOT found")
 
-    def _replace_systemField(
-        self, *, field: str, itemN, search: str, replace: str
-    ) -> None:
-        raise SyntaxError("systemField doesn't work!")
-
-        if field != "__orgUnit":
-            raise SyntaxError("Only systemField:__orgUnit allowed!")
-        mtype = self.conf["module"]
-        ID = self._id_from_item(itemN)
-        field_content = itemN.xpath(
-            f"/m:moduleItem/m:systemField[@name = '{field}']/m:value/text()",
-            namespaces=NSMAP,
-        )[0]
-        if field_content == search:
-            print(f"\tsearch found")
-            if self.act:
-                print("quering RIA for change")
-                xml = f"""
-                    <application xmlns="http://www.zetcom.com/ria/ws/module">
-                        <modules>
-                            <module name="{mtype}">
-                                <moduleItem id="{ID}">
-                                    <systemField name="{field}">
-                                         <value>{replace}</value>
-                                    </systemField>
-                                </moduleItem>
-                            </module>
-                        </modules>
-                    </application>                
-                """
-                print(xml)
-                r = self.ria.updateField(module=mtype, id=ID, dataField=field, xml=xml)
-                print(r)
-            else:
-                print("\tnot acting")
-
-    # should be in a data oriented class
+    # should be in a data oriented class?
     def _id_from_item(self, itemN) -> int:
         """
-        Returns id of the first moduleItem as int.
+        Returns id of the first moduleItem as int. Expects an xml fragment for
+        moduleItem.
         """
         return int(itemN.xpath("/m:moduleItem/@id", namespaces=NSMAP)[0])
 
@@ -352,11 +354,59 @@ class Replace2:
             request = self.ria.updateItem2(mtype=mtype, ID=mulId, data=itemM)
             print(f"Status code: {request.status_code}")
 
-    # should probably not be here
-    def _toString(self, node) -> None:
-        return etree.tostring(node, pretty_print=True, encoding="unicode")
+    def _mulTypeVoc(self, *, old: str, new: str, itemM: Module) -> None:
+        """
+        Rewrite itemN data according to action described in toml file.
 
-    def smbapproval(self, *, old: str, new: str, itemM: Module) -> None:
+        We assume we get only one item/record of the proper mtype passed here inside of
+        itemM.
+
+        itemM should be changed in place, so no return value necessary?
+
+        <vocabularyReference name="MulTypeVoc" id="30341" instanceName="MulTypeVgr">
+          <vocabularyReferenceItem id="31041" name="image">
+            <formattedValue language="de">Digitale Aufnahme</formattedValue>
+          </vocabularyReferenceItem>
+         </vocabularyReference>
+        we want to include the search value here to look only thru records/items with
+        matching value -> not anymore. Let's be more generic
+        """
+
+        known_values = {
+            "3 D": 1816105,
+            "Dia": 1816113,
+            "Digitale Aufnahme": 31041,
+            "Scan": 1816145,
+        }
+
+        try:
+            old_id = known_values[old]
+        except:
+            raise TypeError("Error: Unknown MulTypeVoc value '{old}'")
+
+        try:
+            new_id = known_values[new]
+        except:
+            raise TypeError("Error: Unknown MulTypeVoc value '{new}'")
+
+        vocRefItemL = itemM.xpath(
+            f"""/m:application/m:modules/m:module/m:moduleItem/m:vocabularyReference[
+                @name = 'MulTypeVoc'
+            ]/m:vocabularyReferenceItem[
+                @id = {old_id}
+            ]"""
+        )
+
+        if vocRefItemL:
+            # only change data if this item actually has the search value
+            attribs = vocRefItemL[0].attrib
+            attribs["id"] = str(new_id)
+            if "name" in attribs:
+                del attribs["name"]
+        else:
+            print(f"MulTypeVoc: search value '{old}' not found")
+
+    def _smbapproval(self, *, old: str, new: str, itemM: Module) -> None:
         """
         Rewrite the smb approval. If old == "None", we test that there is no approval
         element and only add smb approal to the record if there was none before.
@@ -440,54 +490,6 @@ class Replace2:
             mulApprovalGrp = etree.fromstring(xml, parser)
             itemN.append(mulApprovalGrp)
 
-    def MulTypeVoc(self, *, old: str, new: str, itemM: Module) -> None:
-        """
-        Rewrite itemN data according to action described in toml file.
-
-        We assume we get only one item/record of the proper mtype passed here inside of
-        itemM.
-
-        itemM should be changed in place, so no return value necessary?
-
-        <vocabularyReference name="MulTypeVoc" id="30341" instanceName="MulTypeVgr">
-          <vocabularyReferenceItem id="31041" name="image">
-            <formattedValue language="de">Digitale Aufnahme</formattedValue>
-          </vocabularyReferenceItem>
-         </vocabularyReference>
-        we want to include the search value here to look only thru records/items with
-        matching value -> not anymore. Let's be more generic
-        """
-
-        known_values = {
-            "3 D": 1816105,
-            "Dia": 1816113,
-            "Digitale Aufnahme": 31041,
-            "Scan": 1816145,
-        }
-
-        try:
-            old_id = known_values[old]
-        except:
-            raise TypeError("Error: Unknown MulTypeVoc value '{old}'")
-
-        try:
-            new_id = known_values[new]
-        except:
-            raise TypeError("Error: Unknown MulTypeVoc value '{new}'")
-
-        vocRefItemL = itemM.xpath(
-            f"""/m:application/m:modules/m:module/m:moduleItem/m:vocabularyReference[
-                @name = 'MulTypeVoc'
-            ]/m:vocabularyReferenceItem[
-                @id = {old_id}
-            ]"""
-        )
-
-        if vocRefItemL:
-            # only change data if this item actually has the search value
-            attribs = vocRefItemL[0].attrib
-            attribs["id"] = str(new_id)
-            if "name" in attribs:
-                del attribs["name"]
-        else:
-            print(f"MulTypeVoc: search value '{old}' not found")
+    # should probably not be here
+    def _toString(self, node) -> None:
+        return etree.tostring(node, pretty_print=True, encoding="unicode")
