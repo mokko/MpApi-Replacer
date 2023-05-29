@@ -19,11 +19,18 @@
     
     replacer2 -a -c
     
-    Datum -> dataField:MulDateTxt
-    Typ Details -> dataField:MulTypeTxt
-    Inh./Ans -> dateField:MulSubjectTxt
+    Anlass -> vocabularyReference:MulShootingReasonVoc
     Bereich -> systemField:__orgUnit
-    
+    Datum -> dataField:MulDateTxt
+    Farbe -> vocabularyReference:MulColorVoc
+    Format -> vocabularyReference:MulFormatVoc
+    Freigabe -> repeatableGroup:MulApprovalGrp
+    Funktion -> vocabularyReference:MulCategoryVoc
+    Inh./Ans -> dateField:MulSubjectTxt
+    Mat.Tech. -> vocabularyReference:MulMatTechVoc
+    Status -> vocabularyReference:MulStatusVoc
+    Typ Details -> dataField:MulTypeTxt
+    Typ -> vocabularyReference:MulTypeVoc
 """
 
 import argparse
@@ -273,7 +280,7 @@ class Replace2:
 
     def _replace_per_item(self, *, itemN) -> None:
         for action in self.conf["replace"]:
-            field_type, field = [x.strip() for x in action["field"].split(":")]
+            field_type, field, voc = [x.strip() for x in action["field"].split(":")]
             search = action["search"]
             replace = action["replace"]
             print(f"** {field_type}: {field}\t{search} -> {replace}")
@@ -282,7 +289,9 @@ class Replace2:
                     field=field, itemN=itemN, search=search, replace=replace
                 )
             elif field_type == "repeatableGroup":
-                print("\trepeatableGroup not implemented yet")
+                self._replace_repeatableGroup(
+                    field=field, itemN=itemN, search=search, replace=replace, voc=voc
+                )
             elif field_type == "systemField":
                 self._replace_systemField(
                     field=field, itemN=itemN, search=search, replace=replace
@@ -297,6 +306,116 @@ class Replace2:
                 raise SyntaxError(f"ERROR: No replacements for virtualFields!")
             else:
                 raise SyntaxError(f"ERROR: Unknown field type: {field_type}")
+
+    def _replace_repeatableGroup(
+        self, *, field: str, itemN, search: str, replace: str, voc: str
+    ) -> None:
+        """
+        replace one value in a repeatableGroup
+
+        <repeatableGroup name="MulApprovalGrp" size="1">
+          <repeatableGroupItem id="21046568" uuid="e354d8b8-199a-443e-ac0d-f3e570035cd9">
+            <dataField dataType="Long" name="SortLnu">
+              <value>1</value>
+              <formattedValue language="de">1</formattedValue>
+            </dataField>
+            <dataField dataType="Varchar" name="ModifiedByTxt">
+              <value>EM_MM</value>
+            </dataField>
+            <dataField dataType="Date" name="ModifiedDateDat">
+              <value>2023-01-29</value>
+              <formattedValue language="de">29.01.2023</formattedValue>
+            </dataField>
+            <vocabularyReference name="TypeVoc" id="58635" instanceName="MulApprovalTypeVgr">
+              <vocabularyReferenceItem id="1816002" name="SMB-digital">
+                <formattedValue language="de">SMB-digital</formattedValue>
+              </vocabularyReferenceItem>
+            </vocabularyReference>
+            <vocabularyReference name="ApprovalVoc" id="58634" instanceName="MulApprovalVgr">
+              <vocabularyReferenceItem id="4160027" name="Ja">
+                <formattedValue language="de">Ja</formattedValue>
+              </vocabularyReferenceItem>
+            </vocabularyReference>
+          </repeatableGroupItem>
+        </repeatableGroup>
+        """
+        mtype = self.conf["module"]
+        ID = self._id_from_item(itemN)
+        search = int(search)
+        replace = int(replace)
+        rGrpN = itemN.xpath(
+            f"/m:moduleItem/m:repeatableGroup[@name = '{field}']", namespaces=NSMAP
+        )[0]
+
+        refID = rGrpN.xpath("m:repeatableGroupItem/@id", namespaces=NSMAP)[0]
+
+        # find the item with id from search
+        rGrpItemL = rGrpN.xpath(
+            f"""m:repeatableGroupItem[
+                    m:vocabularyReference[
+                        @name = '{voc}'
+                    ]/m:vocabularyReferenceItem[
+                        @id = '{search}'
+                    ]
+                ]""",
+            namespaces=NSMAP,
+        )
+        print(f"rGrpItemN: {rGrpItemL[0]}")
+        field_content = int(rGrpItemL[0].attrib["id"])
+        # print ("voc {voc}")
+
+        print(f"{mtype} {ID} {rGrpN} {voc}")
+        # print (f"refID {refID}")
+
+        if len(rGrpItemL) == 1:
+            print("\tsearch found")
+            print(f"refID {refID}")
+            # print(self._toString(rGrpItemL[0]))
+            vRefItemN = rGrpItemL[0].xpath(
+                f"""
+                m:vocabularyReference[
+                        @name = '{voc}'
+                    ]/m:vocabularyReferenceItem[
+                        @id = '{search}'
+                    ]""",
+                namespaces=NSMAP,
+            )[0]
+            vRefItemN.attrib["id"] = str(replace)
+            xml = f"""
+                    <application xmlns="http://www.zetcom.com/ria/ws/module">
+                        <modules>
+                            <module name="{mtype}">
+                                <moduleItem id="{ID}"/>
+                            </module>
+                        </modules>
+                    </application>"""
+            doc = etree.XML(xml)
+            mItemN = doc.xpath(
+                "/m:application/m:modules/m:module/m:moduleItem", namespaces=NSMAP
+            )[0]
+            mItemN.append(rGrpN)
+            m = Module(tree=doc)
+            m.uploadForm()
+            xml = m.toString()
+            print(m.toString())
+            print("validating..")
+            m.validate()
+            if self.act:
+                print("\tquering RIA for change")
+                r = self.ria.updateRepeatableGroup(
+                    module=mtype,
+                    id=ID,
+                    referenceId=refID,
+                    repeatableGroup=field,
+                    xml=xml,
+                )
+                print(f"\t{r}")
+            else:
+                print("\tnot acting")
+        elif len(rGrpItemL) > 1:
+            raise TypeError("More than one hit is not yet implemented!")
+        else:
+            print(f"\tsearch NOT found")
 
     def _replace_systemField(
         self, *, field: str, itemN, search: str, replace: str
@@ -331,7 +450,7 @@ class Replace2:
                 print("quering RIA for change")
                 print(xml)
                 r = self.ria.updateField(module=mtype, id=ID, dataField=field, xml=xml)
-                print("\t" + r)
+                print(f"\t{r}")
             else:
                 print("\tnot acting")
 
@@ -386,7 +505,9 @@ class Replace2:
                             </module>
                         </modules>
                     </application>"""
-
+            m = Module(xml=xml)
+            print("validating..")
+            m.validate()
             shellN = etree.XML(xml)
             mItemN = shellN.xpath(
                 "/m:application/m:modules/m:module/m:moduleItem", namespaces=NSMAP
@@ -401,6 +522,7 @@ class Replace2:
                     repeatableGroup=field,
                     xml=xml,
                 )
+                print(f"\t{r}")
             else:
                 print("\tnot acting")
         elif len(vRefItemL) > 1:
