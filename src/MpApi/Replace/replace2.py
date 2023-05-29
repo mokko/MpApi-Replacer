@@ -104,7 +104,11 @@ class Replace2:
         mtype = self.conf["module"]
 
         for itemN in search_results.iter(module=mtype):
-            item2 = deepcopy(itemN)  # not quite sure why i need a copy
+            # without copy the whole document is passed around
+            # but I wanted only moduleItem fragments
+            # next time I will extract an index of IDs and use that
+            # to loop thru whole document.
+            item2 = deepcopy(itemN)
             ID = self._id_from_item(item2)
             mtype = self.conf["module"]
             print(f"* {mtype} {ID}")
@@ -142,7 +146,9 @@ class Replace2:
                     field=field, itemN=itemN, search=search, replace=replace
                 )
             elif field_type == "vocabularyReference":
-                print("\tvocabularyReference not implemented yet")
+                self._replace_vocabularyReference(
+                    field=field, itemN=itemN, search=search, replace=replace
+                )
             elif field_type == "composite":
                 print("\tcomposite not implemented yet")
             elif field_type == "virtualField":
@@ -174,10 +180,84 @@ class Replace2:
         else:
             print(f"\tsearch NOT found")
 
+    def _replace_vocabularyReference(
+        self, *, field: str, itemN, search: str, replace: str
+    ) -> None:
+        """
+        Multimedia has many vocabularyReferences that allow a single term and only a few
+        that allow multiple vocabularyReferenceItem.
+
+        <vocabularyReference name="MulCategoryVoc" id="30330"
+            instanceName="MulCategoryVgr">
+          <vocabularyReferenceItem id="1055742" name="Audio">
+            <formattedValue language="de">Audio</formattedValue>
+          </vocabularyReferenceItem>
+        </vocabularyReference>
+
+        Upload format might be (guessed)
+        <vocabularyReference name="MulCategoryVoc" id="30330">
+          <vocabularyReferenceItem id="1055742"/> <!-- name="Audio"-->
+        </vocabularyReference>
+        """
+        mtype = self.conf["module"]
+        ID = self._id_from_item(itemN)
+        search = int(search)
+        replace = int(replace)
+        refID = itemN.xpath(
+            f"/m:moduleItem/m:vocabularyReference[@name = '{field}']/@id",
+            namespaces=NSMAP,
+        )[0]
+        # here we simply take the first, instead we have to take the one with the search
+        vRefN = itemN.xpath(
+            f"/m:moduleItem/m:vocabularyReference[@name = '{field}']", namespaces=NSMAP
+        )[0]
+        vRefItemL = vRefN.xpath(
+            f"m:vocabularyReferenceItem[@id = '{search}']", namespaces=NSMAP
+        )
+        field_content = int(vRefItemL[0].xpath("@id", namespaces=NSMAP)[0])
+
+        if len(vRefItemL) == 1:
+            print("\tsearch found")
+            vRefItemL[0].attrib["id"] = str(replace)
+            vRefItemL[0].attrib.pop("name")
+            fvN = vRefItemL[0].xpath("m:formattedValue", namespaces=NSMAP)[0]
+            vRefItemL[0].remove(fvN)
+            # vRefN.attrib.pop("instanceName")
+            xml = f"""
+                    <application xmlns="http://www.zetcom.com/ria/ws/module">
+                        <modules>
+                            <module name="{mtype}">
+                                <moduleItem id="{ID}"/>
+                            </module>
+                        </modules>
+                    </application>"""
+
+            shellN = etree.XML(xml)
+            mItemN = shellN.xpath(
+                "/m:application/m:modules/m:module/m:moduleItem", namespaces=NSMAP
+            )[0]
+            mItemN.append(vRefN)
+            print(self._toString(shellN))
+            if self.act:
+                r = self.ria.updateRepeatableGroup(
+                    module=mtype,
+                    id=ID,
+                    referenceId=refID,
+                    repeatableGroup=field,
+                    xml=xml,
+                )
+            else:
+                print("\tnot acting")
+        elif len(vRefItemL) > 1:
+            raise TypeError("More than one hit is not yet implemented!")
+        else:
+            print(f"\tsearch NOT found")
+
     def _replace_systemField(
         self, *, field: str, itemN, search: str, replace: str
     ) -> None:
-        raise SyntaxError("systemFields dont work!")
+        raise SyntaxError("systemField doesn't work!")
+
         if field != "__orgUnit":
             raise SyntaxError("Only systemField:__orgUnit allowed!")
         mtype = self.conf["module"]
@@ -195,7 +275,9 @@ class Replace2:
                         <modules>
                             <module name="{mtype}">
                                 <moduleItem id="{ID}">
-                                    <systemField name="{field}"/>
+                                    <systemField name="{field}">
+                                         <value>{replace}</value>
+                                    </systemField>
                                 </moduleItem>
                             </module>
                         </modules>
