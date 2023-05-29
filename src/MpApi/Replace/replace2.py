@@ -118,6 +118,14 @@ class Replace2:
     # private
     #
 
+    # should be in a data oriented class?
+    def _id_from_item(self, itemN) -> int:
+        """
+        Returns id of the first moduleItem as int. Expects an xml fragment for
+        moduleItem.
+        """
+        return int(itemN.xpath("/m:moduleItem/@id", namespaces=NSMAP)[0])
+
     def _init_conf(self, *, conf_fn):
         with open(conf_fn, "rb") as f:
             conf = tomllib.load(f)
@@ -128,6 +136,116 @@ class Replace2:
                     f"ERROR: Required configuration value '{required}' missing!"
                 )
         return conf
+
+    # OBSOLETE
+    def _mulTypeVoc(self, *, old: str, new: str, itemM: Module) -> None:
+        """
+        Rewrite itemN data according to action described in toml file.
+
+        We assume we get only one item/record of the proper mtype passed here inside of
+        itemM.
+
+        itemM should be changed in place, so no return value necessary?
+
+        <vocabularyReference name="MulTypeVoc" id="30341" instanceName="MulTypeVgr">
+          <vocabularyReferenceItem id="31041" name="image">
+            <formattedValue language="de">Digitale Aufnahme</formattedValue>
+          </vocabularyReferenceItem>
+         </vocabularyReference>
+        we want to include the search value here to look only thru records/items with
+        matching value -> not anymore. Let's be more generic
+        """
+
+        known_values = {
+            "3 D": 1816105,
+            "Dia": 1816113,
+            "Digitale Aufnahme": 31041,
+            "Scan": 1816145,
+        }
+
+        try:
+            old_id = known_values[old]
+        except:
+            raise TypeError("Error: Unknown MulTypeVoc value '{old}'")
+
+        try:
+            new_id = known_values[new]
+        except:
+            raise TypeError("Error: Unknown MulTypeVoc value '{new}'")
+
+        vocRefItemL = itemM.xpath(
+            f"""/m:application/m:modules/m:module/m:moduleItem/m:vocabularyReference[
+                @name = 'MulTypeVoc'
+            ]/m:vocabularyReferenceItem[
+                @id = {old_id}
+            ]"""
+        )
+
+        if vocRefItemL:
+            # only change data if this item actually has the search value
+            attribs = vocRefItemL[0].attrib
+            attribs["id"] = str(new_id)
+            if "name" in attribs:
+                del attribs["name"]
+        else:
+            print(f"MulTypeVoc: search value '{old}' not found")
+
+    # OBSOLETE
+    def _perItem(self, *, itemN, mtype: str) -> None:
+        """
+        OBSOLETE
+        Process individual items (=record), expects itemN as a node
+
+        This is the second step of the actual replacement process.
+
+        As usual i have trouble with the ria (speciication), so I dont know which
+        endpoint to use. For posterity, I want to change a simple value in a
+        vocabularyReference.
+
+        Options are:
+        (a) update the whole record -> updateItem
+        (b) update a single field, but unclear if zetcom treats vocRef as field
+             -> updateFieldInGroup, seems very unlikely
+        (c) update whole rGrp or rGrpItem -> updateRepeatableGroup
+
+        """
+        Id = itemN.xpath("@id")[0]  # there can be only one
+        xml = f"""
+            <application xmlns="http://www.zetcom.com/ria/ws/module">
+                <modules>
+                    <module name="{mtype}"/>
+                </modules>
+            </application>"""
+        outer = etree.fromstring(xml, parser)
+        moduleN = outer.xpath("/m:application/m:modules/m:module", namespaces=NSMAP)[0]
+        moduleN.append(itemN)
+        itemM = Module(tree=outer)
+        itemM.uploadForm()
+        print(f"{mtype} {mulId}")
+        for action in self.conf["actions"]:
+            old = self.conf["actions"][action]["old"]
+            new = self.conf["actions"][action]["new"]
+            if mtype == "Multimedia":
+                if action == "Typ":
+                    self.MulTypeVoc(
+                        itemM=itemM, old=old, new=new
+                    )  # change data in place
+                elif action == "SMB-Freigabe":
+                    self.smbapproval(itemM=itemM, old=old, new=new)
+                else:
+                    raise TypeError(f"Not yet implemented: {action}")
+            else:
+                raise TypeError(f"Not yet implemented: {action}")
+
+        fn = f"{mtype}-{mulId}.afterReplace.xml"
+        print(f"Writing to {fn}")
+        itemM.toFile(path=fn)
+        itemM.validate()
+
+        if self.act:
+            # currently updates even if nothing has changed
+            request = self.ria.updateItem2(mtype=mtype, ID=mulId, data=itemM)
+            print(f"Status code: {request.status_code}")
 
     def _replace_dataField(
         self, *, field: str, itemN, search: str, replace: str
@@ -289,122 +407,6 @@ class Replace2:
             raise TypeError("More than one hit is not yet implemented!")
         else:
             print(f"\tsearch NOT found")
-
-    # should be in a data oriented class?
-    def _id_from_item(self, itemN) -> int:
-        """
-        Returns id of the first moduleItem as int. Expects an xml fragment for
-        moduleItem.
-        """
-        return int(itemN.xpath("/m:moduleItem/@id", namespaces=NSMAP)[0])
-
-    def _perItem(self, *, itemN, mtype: str) -> None:
-        """
-        OBSOLETE
-        Process individual items (=record), expects itemN as a node
-
-        This is the second step of the actual replacement process.
-
-        As usual i have trouble with the ria (speciication), so I dont know which
-        endpoint to use. For posterity, I want to change a simple value in a
-        vocabularyReference.
-
-        Options are:
-        (a) update the whole record -> updateItem
-        (b) update a single field, but unclear if zetcom treats vocRef as field
-             -> updateFieldInGroup, seems very unlikely
-        (c) update whole rGrp or rGrpItem -> updateRepeatableGroup
-
-        """
-        Id = itemN.xpath("@id")[0]  # there can be only one
-        xml = f"""
-            <application xmlns="http://www.zetcom.com/ria/ws/module">
-                <modules>
-                    <module name="{mtype}"/>
-                </modules>
-            </application>"""
-        outer = etree.fromstring(xml, parser)
-        moduleN = outer.xpath("/m:application/m:modules/m:module", namespaces=NSMAP)[0]
-        moduleN.append(itemN)
-        itemM = Module(tree=outer)
-        itemM.uploadForm()
-        print(f"{mtype} {mulId}")
-        for action in self.conf["actions"]:
-            old = self.conf["actions"][action]["old"]
-            new = self.conf["actions"][action]["new"]
-            if mtype == "Multimedia":
-                if action == "Typ":
-                    self.MulTypeVoc(
-                        itemM=itemM, old=old, new=new
-                    )  # change data in place
-                elif action == "SMB-Freigabe":
-                    self.smbapproval(itemM=itemM, old=old, new=new)
-                else:
-                    raise TypeError(f"Not yet implemented: {action}")
-            else:
-                raise TypeError(f"Not yet implemented: {action}")
-
-        fn = f"{mtype}-{mulId}.afterReplace.xml"
-        print(f"Writing to {fn}")
-        itemM.toFile(path=fn)
-        itemM.validate()
-
-        if self.act:
-            # currently updates even if nothing has changed
-            request = self.ria.updateItem2(mtype=mtype, ID=mulId, data=itemM)
-            print(f"Status code: {request.status_code}")
-
-    def _mulTypeVoc(self, *, old: str, new: str, itemM: Module) -> None:
-        """
-        Rewrite itemN data according to action described in toml file.
-
-        We assume we get only one item/record of the proper mtype passed here inside of
-        itemM.
-
-        itemM should be changed in place, so no return value necessary?
-
-        <vocabularyReference name="MulTypeVoc" id="30341" instanceName="MulTypeVgr">
-          <vocabularyReferenceItem id="31041" name="image">
-            <formattedValue language="de">Digitale Aufnahme</formattedValue>
-          </vocabularyReferenceItem>
-         </vocabularyReference>
-        we want to include the search value here to look only thru records/items with
-        matching value -> not anymore. Let's be more generic
-        """
-
-        known_values = {
-            "3 D": 1816105,
-            "Dia": 1816113,
-            "Digitale Aufnahme": 31041,
-            "Scan": 1816145,
-        }
-
-        try:
-            old_id = known_values[old]
-        except:
-            raise TypeError("Error: Unknown MulTypeVoc value '{old}'")
-
-        try:
-            new_id = known_values[new]
-        except:
-            raise TypeError("Error: Unknown MulTypeVoc value '{new}'")
-
-        vocRefItemL = itemM.xpath(
-            f"""/m:application/m:modules/m:module/m:moduleItem/m:vocabularyReference[
-                @name = 'MulTypeVoc'
-            ]/m:vocabularyReferenceItem[
-                @id = {old_id}
-            ]"""
-        )
-
-        if vocRefItemL:
-            # only change data if this item actually has the search value
-            attribs = vocRefItemL[0].attrib
-            attribs["id"] = str(new_id)
-            if "name" in attribs:
-                del attribs["name"]
-        else:
-            print(f"MulTypeVoc: search value '{old}' not found")
 
     def _smbapproval(self, *, old: str, new: str, itemM: Module) -> None:
         """
