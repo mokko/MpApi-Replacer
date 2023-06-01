@@ -14,46 +14,31 @@
         module = "Multimedia" # Assets
         [[replace]]
         field = "systemField:__orgUnit"
-        search = "Scan"
-        replace = "Digitale Aufnahme"
+        search = "EMMusikethnologie"
+        replace = "EMMedienarchiv"
     
     replacer2 -a -c
     
-    Anlass -> vocabularyReference:MulShootingReasonVoc
-    Bereich -> systemField:__orgUnit
-    Datum -> dataField:MulDateTxt
-    Farbe -> vocabularyReference:MulColorVoc
-    Format -> vocabularyReference:MulFormatVoc
-    Freigabe -> repeatableGroup:MulApprovalGrp
-    Funktion -> vocabularyReference:MulCategoryVoc
-    Inh./Ans -> dateField:MulSubjectTxt
-    Mat.Tech. -> vocabularyReference:MulMatTechVoc
-    Status -> vocabularyReference:MulStatusVoc
-    Typ Details -> dataField:MulTypeTxt
-    Typ -> vocabularyReference:MulTypeVoc
 """
+
 
 import argparse
 import datetime
 from copy import deepcopy
 from lxml import etree
 from mpapi.client import MpApi
-from mpapi.constants import get_credentials, NSMAP, parser
+from mpapi.constants import NSMAP, parser
 from mpapi.module import Module
 from pathlib import Path
+from MpApi.Replace.baseApp import BaseApp
 import sys
-
-try:
-    import tomllib  # Python v3.11
-except ModuleNotFoundError:
-    import tomli as tomllib  # < Python v3.11
 
 
 class ConfigError(Exception):
     pass
 
 
-class Replace2:
+class Replace2(BaseApp):
     def __init__(
         self,
         *,
@@ -65,35 +50,9 @@ class Replace2:
         pw: str,
         user: str,
     ):
-        self.act = act
-        self.cache = cache
-        self.limit = limit
-        self.ria = MpApi(baseURL=baseURL, user=user, pw=pw)
-        self.conf = self._init_conf(conf_fn=conf_fn)
-        print(f"Logged in as {user}")
-
-    def search(self):
-        """
-        Either make a new query to RIA or return the cached results from previous run
-        (in cache mode).
-
-        It's the user's the responsibility to decide when they want to make a new query.
-
-        Returns Module data potentially with many items/records.
-        """
-        qId = self.conf["savedQuery"]
-        fn = f"savedQuery-{qId}.xml"
-        if self.cache:
-            print(f"* Getting search results from file cache '{fn}'")
-            m = Module(file=fn)
-        else:
-            print(f"* New query ID {qId} {self.conf['module']}")
-            m = self.ria.runSavedQuery3(
-                ID=qId, Type=self.conf["module"], limit=self.limit
-            )
-            print(f"* Writing search results to {fn}")
-            m.toFile(path=fn)  # overwrites old files
-        return m
+        super().__init__(
+            act=act, baseURL=baseURL, conf_fn=conf_fn, cache=cache, pw=pw, user=user
+        )
 
     def replace(self, *, search_results: Module) -> None:
         """
@@ -132,17 +91,6 @@ class Replace2:
         moduleItem.
         """
         return int(itemN.xpath("/m:moduleItem/@id", namespaces=NSMAP)[0])
-
-    def _init_conf(self, *, conf_fn):
-        with open(conf_fn, "rb") as f:
-            conf = tomllib.load(f)
-
-        for required in ["module", "savedQuery", "replace"]:
-            if not required in conf:
-                raise Exception(
-                    f"ERROR: Required configuration value '{required}' missing!"
-                )
-        return conf
 
     # OBSOLETE
     def _mulTypeVoc(self, *, old: str, new: str, itemM: Module) -> None:

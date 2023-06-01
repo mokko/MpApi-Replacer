@@ -1,6 +1,6 @@
 """An Unofficial Client for the MuseumPlus API"""
 
-__version__ = "0.0.3"  # repairing flit
+__version__ = "0.0.4"  # new: replace3.py
 import argparse
 
 from mpapi.constants import get_credentials
@@ -56,7 +56,7 @@ def replace2():
     parser.add_argument(
         "-j",
         "--job",
-        default="replace2.toml",
+        default="replace.toml",
         help="load a job config 'replace2.toml' and execute it",
     )
     parser.add_argument(
@@ -77,6 +77,59 @@ def replace2():
         raise SystemExit("--job|-j required")
 
     r = Replace2(
+        act=args.act,
+        baseURL=baseURL,
+        conf_fn=args.job,
+        cache=args.cache,
+        pw=pw,
+        user=user,
+    )
+    print("Searching...")
+    dataM = r.search()
+    print("Replacing...")
+    r.replace(search_results=dataM)
+
+
+def replace3():
+    parser = argparse.ArgumentParser(
+        description="Command line frontend for Replace3.py"
+    )
+    parser.add_argument(
+        "-c",
+        "--cache",
+        help="reads search results from a file cache (aka lazy mode)",
+        action="store_true",
+    )
+    parser.add_argument(
+        "-a",
+        "--act",
+        help="actually make changes to RIA, without -a replacer2 only shows what would be changed",
+        action="store_true",
+    )
+    parser.add_argument(
+        "-j",
+        "--job",
+        default="replace.toml",
+        help="load a job config 'replace2.toml' and execute it",
+    )
+    parser.add_argument(
+        "-l", "--limit", help="set limit for initial search", default="-1"
+    )
+    parser.add_argument(
+        "-v",
+        "--version",
+        help="show program's version",
+        action="store_true",
+    )
+    args = parser.parse_args()
+
+    if args.version:
+        print(__version__)
+        raise SystemExit
+    elif not args.job:
+        raise SystemExit("--job|-j required")
+
+    r = Replace3(
         act=args.act,
         baseURL=baseURL,
         conf_fn=args.job,
