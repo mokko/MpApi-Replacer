@@ -24,3 +24,4 @@ test = [
 [project.scripts]
 mpReplace1 = 'MpApi.Replace:replace1'
 mpReplace2 = 'MpApi.Replace:replace2'
+mpReplace3 = 'MpApi.Replace:replace3'

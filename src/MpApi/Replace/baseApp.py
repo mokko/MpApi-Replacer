@@ -31,7 +31,7 @@ RIA_data = {
         "Datum": "dataField:MulDateTxt",  # Freitext
         "Farbe": "vocabularyReference:MulColorVoc",
         "Format": "vocabularyReference:MulFormatVoc",
-        "Freigabe": {
+        "Freigabe.Freigabe": {
             "repeatableGroup:MulApprovalGrp:ApprovalVoc": {
                 "Ja": 4160027,
                 "Nein": 4160028,
@@ -93,7 +93,7 @@ class BaseApp:
     # public
     #
 
-    def _init_conf(self, *, conf_fn: str):
+    def _init_conf(self, *, conf_fn: str) -> dict:
         with open(conf_fn, "rb") as f:
             conf = tomllib.load(f)
 
@@ -103,3 +103,45 @@ class BaseApp:
                     f"ERROR: Required configuration value '{required}' missing!"
                 )
         return conf
+
+    def _rewrite_conf(self, conf) -> dict:
+        """
+        Sanitizes a bit and rewrites external with internal RIA values
+        """
+        new = {}
+        new["module"] = conf["module"]
+        new["savedQuery"] = conf["savedQuery"]
+        new["replace"] = []
+
+        mtype = conf["module"]
+        for action in conf["replace"]:
+            action2 = {}
+            f_ex = action["field"]
+            s_ex = action["search"]
+            r_ex = action["replace"]
+            try:
+                RIA_data[mtype][f_ex]
+            except KeyError:
+                raise SyntaxError(f"ERROR: Unknown external field: {f_ex}")
+
+            f_in = list(RIA_data[mtype][f_ex].keys())[0]
+            action2["field"] = f_in
+            action2["f_ex"] = f_ex
+            action2["s_ex"] = s_ex
+            action2["r_ex"] = r_ex
+
+            # print(f"f_in: {f_in}")
+            try:
+                action2["search"] = RIA_data[mtype][f_ex][f_in][s_ex]
+            except KeyError:
+                raise SyntaxError(
+                    f"ERROR: external search value '{s_ex}' not in {mtype}: {f_ex}"
+                )
+            try:
+                action2["replace"] = RIA_data[mtype][f_ex][f_in][r_ex]
+            except:
+                raise SyntaxError(
+                    f"ERROR: external replace value '{r_ex}' not in {mtype}: {f_ex}"
+                )
+            new["replace"].append(action2)
+        return new
