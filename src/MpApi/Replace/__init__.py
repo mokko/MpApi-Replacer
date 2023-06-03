@@ -117,6 +117,6 @@ def replace3():
         user=user,
     )
     print("Searching...")
-    # dataM = r.search()
+    dataM = r.search()  # it's paramount that we get full records this time
     print("Replacing...")
-    # r.replace(search_results=dataM)
+    r.replace(search_results=dataM)

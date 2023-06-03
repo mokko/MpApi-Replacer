@@ -4,6 +4,7 @@ Code that is reusable over multiple replacer apps
 
 """
 
+from lxml import etree
 from mpapi.client import MpApi
 from mpapi.module import Module
 
@@ -20,12 +21,12 @@ RIA_data = {
         "Anlass": "vocabularyReference:MulShootingReasonVoc",
         "Bereich": {
             "systemField:__orgUnit": {
-                "EMAfrika1": "EM-Afrika",
-                "EMAllgemein": "EM-Allgemein",
-                "EMAmArchaologie": "EM-Am Archaologie",
-                "EMAmEthnologie": "EM-Am Ethnologie",
-                "EMMedienarchiv": "EM-Medienarchiv",
-                "EMMusikethnologie": "EM-Musikethnologie",
+                "EM-Afrika": "EMAfrika1",
+                "EM-Allgemein": "EMAllgemein",
+                "EM-Am Archaologie": "EMAmArchaologie",
+                "EM-Am Ethnologie": "EMAmEthnologie",
+                "EM-Medienarchiv": "EMMedienarchiv",
+                "EM-Musikethnologie": "EMMusikethnologie",
             }
         },
         "Datum": "dataField:MulDateTxt",  # Freitext
@@ -37,8 +38,14 @@ RIA_data = {
                 "Nein": 4160028,
             }
         },
-        "Funktion": "vocabularyReference:MulCategoryVoc",
-        "InhAns": "dateField:MulSubjectTxt",
+        "Funktion": {
+            "vocabularyReference:MulCategoryVoc": {
+                "Audio": 1055742,
+                "Arbeitsfoto": 4771972,
+                "Video": 5042851,
+            },
+        },
+        "InhAns": "dataField:MulSubjectTxt",
         "MatTech": "vocabularyReference:MulMatTechVoc",
         "Status": "vocabularyReference:MulStatusVoc",
         "TypDetails": "dataField:MulTypeTxt",
@@ -93,6 +100,34 @@ class BaseApp:
     # public
     #
 
+    def _completeItem(self, *, data: Module, ID: int) -> str:
+        """
+        Return a single moduleItem wrapped in xml as required by Zetcom.
+
+        Receive the whole document (with many items) and a moduleItem ID and returns a
+        complete xml doc as string with only that one moduleItem.
+
+        TODO: Revisit return value. Is str really right? Alternatives are lxml doc
+        and Module.
+        """
+        mtype = data.xpath("/m:application/m:modules/m:module/@name")[0]
+        mItemN = data.xpath(
+            f"/m:application/m:modules/m:module/m:moduleItem[@id = {ID}]"
+        )[0]
+
+        xml = f"""
+            <application xmlns="http://www.zetcom.com/ria/ws/module">
+                <modules>
+                    <module name="{mtype}"/>
+                </modules>
+            </application>                
+        """
+
+        m = Module(xml=xml)
+        moduleN = m.xpath("/m:application/m:modules/m:module")[0]
+        moduleN.append(mItemN)
+        return m.toString()
+
     def _init_conf(self, *, conf_fn: str) -> dict:
         with open(conf_fn, "rb") as f:
             conf = tomllib.load(f)
@@ -104,9 +139,13 @@ class BaseApp:
                 )
         return conf
 
-    def _rewrite_conf(self, conf) -> dict:
+    def _rewrite_conf(self, conf: dict) -> dict:
         """
-        Sanitizes a bit and rewrites external with internal RIA values
+        Rewrites external conf values with internal RIA ones; also some sanitizing as
+        values other than requested ones are dropped.
+
+        The new conf values have different keys, distinguishing between the user-facing
+        view (external) and the internal values RIA uses.
         """
         new = {}
         new["module"] = conf["module"]
@@ -125,23 +164,38 @@ class BaseApp:
                 raise SyntaxError(f"ERROR: Unknown external field: {f_ex}")
 
             f_in = list(RIA_data[mtype][f_ex].keys())[0]
-            action2["field"] = f_in
+            action2["f_in"] = f_in
             action2["f_ex"] = f_ex
             action2["s_ex"] = s_ex
             action2["r_ex"] = r_ex
+            action2["field"] = [x.strip() for x in f_in.split(":")]
 
             # print(f"f_in: {f_in}")
             try:
-                action2["search"] = RIA_data[mtype][f_ex][f_in][s_ex]
+                action2["s_in"] = RIA_data[mtype][f_ex][f_in][s_ex]
             except KeyError:
                 raise SyntaxError(
                     f"ERROR: external search value '{s_ex}' not in {mtype}: {f_ex}"
                 )
             try:
-                action2["replace"] = RIA_data[mtype][f_ex][f_in][r_ex]
+                action2["r_in"] = RIA_data[mtype][f_ex][f_in][r_ex]
             except:
                 raise SyntaxError(
                     f"ERROR: external replace value '{r_ex}' not in {mtype}: {f_ex}"
                 )
+
+            if action2["field"][0] not in (
+                "dataField",
+                "repeatableGroup",
+                "systemField",
+                "vocabularyReference",
+            ):
+                raise SyntaxError(f"ERROR: Unknown field type: {action2['field'][0]}")
+
             new["replace"].append(action2)
+
         return new
+
+    # should probably not be here
+    def _toString(self, node) -> None:
+        return etree.tostring(node, pretty_print=True, encoding="unicode")
