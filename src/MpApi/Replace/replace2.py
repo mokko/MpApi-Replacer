@@ -1,23 +1,15 @@
 """
-    Perhaps we need a new replacer. Replacer2 is dfferent from replacer1 in that it 
-    - takes saved queries as input and 
-    - sends update requests on a per field basis instead of global documents
+    Replacer2 is different from replacer1 in that it 
+    - takes saved queries as input and
+    - it allows only to replace existing values with new values
+    In contrast to replacer3 it
+    - sends update requests on a per field basis instead of item-wide changes
+      which leads to cleaner log messages in RIA
 
-    The command-line interface remains similar.
+    The command-line interface remains similar to replace1 and replace3.
 
-    It's very possible that RIA will let me only change certain field types and not on 
-    others. For example, I assume I can't change any or most SystemFields. I hope we'll
-    find out.
-    
-    new toml format describing a change job
-        savedQuery = 538067   # p-TestAssets 
-        module = "Multimedia" # Assets
-        [[replace]]
-        field = "systemField:__orgUnit"
-        search = "EMMusikethnologie"
-        replace = "EMMedienarchiv"
-    
-    replacer2 -a -c
+    Usage:
+        replacer2 -a -c
     
 """
 
@@ -92,77 +84,12 @@ class Replace2(BaseApp):
         """
         return int(itemN.xpath("/m:moduleItem/@id", namespaces=NSMAP)[0])
 
-    # OBSOLETE
-    def _mulTypeVoc(self, *, old: str, new: str, itemM: Module) -> None:
-        """
-        Rewrite itemN data according to action described in toml file.
-
-        We assume we get only one item/record of the proper mtype passed here inside of
-        itemM.
-
-        itemM should be changed in place, so no return value necessary?
-
-        <vocabularyReference name="MulTypeVoc" id="30341" instanceName="MulTypeVgr">
-          <vocabularyReferenceItem id="31041" name="image">
-            <formattedValue language="de">Digitale Aufnahme</formattedValue>
-          </vocabularyReferenceItem>
-         </vocabularyReference>
-        we want to include the search value here to look only thru records/items with
-        matching value -> not anymore. Let's be more generic
-        """
-
-        known_values = {
-            "3 D": 1816105,
-            "Dia": 1816113,
-            "Digitale Aufnahme": 31041,
-            "Scan": 1816145,
-        }
-
-        try:
-            old_id = known_values[old]
-        except:
-            raise TypeError("Error: Unknown MulTypeVoc value '{old}'")
-
-        try:
-            new_id = known_values[new]
-        except:
-            raise TypeError("Error: Unknown MulTypeVoc value '{new}'")
-
-        vocRefItemL = itemM.xpath(
-            f"""/m:application/m:modules/m:module/m:moduleItem/m:vocabularyReference[
-                @name = 'MulTypeVoc'
-            ]/m:vocabularyReferenceItem[
-                @id = {old_id}
-            ]"""
-        )
-
-        if vocRefItemL:
-            # only change data if this item actually has the search value
-            attribs = vocRefItemL[0].attrib
-            attribs["id"] = str(new_id)
-            if "name" in attribs:
-                del attribs["name"]
-        else:
-            print(f"MulTypeVoc: search value '{old}' not found")
-
-    # OBSOLETE
     def _perItem(self, *, itemN, mtype: str) -> None:
         """
         OBSOLETE
         Process individual items (=record), expects itemN as a node
 
         This is the second step of the actual replacement process.
-
-        As usual i have trouble with the ria (speciication), so I dont know which
-        endpoint to use. For posterity, I want to change a simple value in a
-        vocabularyReference.
-
-        Options are:
-        (a) update the whole record -> updateItem
-        (b) update a single field, but unclear if zetcom treats vocRef as field
-             -> updateFieldInGroup, seems very unlikely
-        (c) update whole rGrp or rGrpItem -> updateRepeatableGroup
-
         """
         Id = itemN.xpath("@id")[0]  # there can be only one
         xml = f"""
@@ -477,91 +404,3 @@ class Replace2(BaseApp):
             raise TypeError("More than one hit is not yet implemented!")
         else:
             print(f"\tsearch NOT found")
-
-    def _smbapproval(self, *, old: str, new: str, itemM: Module) -> None:
-        """
-        Rewrite the smb approval. If old == "None", we test that there is no approval
-        element and only add smb approal to the record if there was none before.
-
-        <repeatableGroup name="MulApprovalGrp" size="1">
-          <repeatableGroupItem id="10159204">
-            <vocabularyReference name="TypeVoc" id="58635" instanceName="MulApprovalTypeVgr">
-              <vocabularyReferenceItem id="1816002" name="SMB-digital">
-                <formattedValue language="en">SMB-digital</formattedValue>
-              </vocabularyReferenceItem>
-            </vocabularyReference>
-            <vocabularyReference name="ApprovalVoc" id="58634" instanceName="MulApprovalVgr">
-              <vocabularyReferenceItem id="4160027" name="Ja">
-                <formattedValue language="en">Ja</formattedValue>
-              </vocabularyReferenceItem>
-            </vocabularyReference>
-          </repeatableGroupItem>
-        </repeatableGroup>
-        """
-
-        if old == "None":
-            resL = itemM.xpath(
-                """/m:application/m:modules/m:module/m:moduleItem/m:repeatableGroup[
-                @name = 'MulApprovalGrp'
-            ]/m:repeatableGroupItem/m:vocabularyReference[
-                @name = 'TypeVoc'
-            ]/m:vocabularyReferenceItem[
-                @id = '1816002'
-            ]"""
-            )
-
-            if resL:
-                # SMB approval exists already, but user requested that old value is None,
-                # so we dont change anything in this record, i.e. return None now
-                print(
-                    "SMB approval is not None, but None requested, so not changing approval"
-                )
-                return
-            else:
-                print("Need to create a new MulApprovalGrp for SMB-Digital")
-        elif old == "Ja":
-            resL = itemM.xpath(
-                """/m:application/m:modules/m:module/m:moduleItem/m:repeatableGroup[
-                @name = 'MulApprovalGrp'
-            ]/m:repeatableGroupItem/m:vocabularyReference[
-                @name = 'TypeVoc'
-            ]/m:vocabularyReferenceItem[
-                @id = '1816002'
-            ]"""
-            )
-
-        known_values = {
-            "Ja": 4160027,
-            "SMB-Digital": 1816002,
-        }
-
-        # rGrp=MulApprovalGrp could already exist
-        # let's assume at first that MulApprovalGrp doesn't already exist
-        if new == "Ja":
-            today = datetime.date.today()
-            xml = f"""
-                <repeatableGroup xmlns="http://www.zetcom.com/ria/ws/module" name="MulApprovalGrp">
-                  <repeatableGroupItem> 
-                    <dataField dataType="Varchar" name="ModifiedByTxt">
-                      <value>EM_SB</value>
-                    </dataField>
-                    <dataField dataType="Date" name="ModifiedDateDat">
-                      <value>{today}</value>
-                    </dataField>
-                    <vocabularyReference name="TypeVoc" id="58635" instanceName="MulApprovalTypeVgr">
-                      <vocabularyReferenceItem id="1816002"/>
-                    </vocabularyReference>
-                    <vocabularyReference name="ApprovalVoc" id="58634" instanceName="MulApprovalVgr">
-                      <vocabularyReferenceItem id="4160027"/>
-                    </vocabularyReference>
-                  </repeatableGroupItem>
-                </repeatableGroup>
-            """
-
-            itemN = itemM.xpath("/m:application/m:modules/m:module/m:moduleItem")[0]
-            mulApprovalGrp = etree.fromstring(xml, parser)
-            itemN.append(mulApprovalGrp)
-
-    # should probably not be here
-    def _toString(self, node) -> None:
-        return etree.tostring(node, pretty_print=True, encoding="unicode")

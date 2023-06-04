@@ -15,8 +15,8 @@ user, pw, baseURL = get_credentials()
 def replace1():
     parser = argparse.ArgumentParser(description="Command line frontend for Replace.py")
     parser.add_argument(
-        "-l",
-        "--lazy",
+        "-c",
+        "--cache",
         help="lazy modes reads search results from a file cache, for debugging",
         action="store_true",
     )
@@ -32,10 +32,19 @@ def replace1():
     parser.add_argument(
         "-L", "--Limit", help="set limit for initial search", default="-1"
     )
+    parser.add_argument(
+        "-v",
+        "--version",
+        help="show program's version",
+        action="store_true",
+    )
     args = parser.parse_args()
-    r = Replace1(baseURL=baseURL, pw=pw, user=user, lazy=args.lazy, act=args.act)
+    if args.version:
+        print(__version__)
+        raise SystemExit
+    r = Replace1(baseURL=baseURL, pw=pw, user=user, lazy=args.cache, act=args.act)
     plugin = r.job(plugin=args.job)
-    r.runPlugin(plugin=plugin, limit=args.Limit)  # set to -1 for production
+    r.runPlugin(plugin=plugin, limit=args.Limit)
 
 
 def _replace(parser) -> dict:
@@ -54,8 +63,7 @@ def _replace(parser) -> dict:
     parser.add_argument(
         "-j",
         "--job",
-        default="replace.toml",
-        help="load a job config 'replace2.toml' and execute it",
+        help="load a config job and execute it",
     )
     parser.add_argument(
         "-l", "--limit", help="set limit for initial search", default="-1"
@@ -66,8 +74,15 @@ def _replace(parser) -> dict:
         help="show program's version",
         action="store_true",
     )
+    args = parser.parse_args()
 
-    return parser.parse_args()
+    if args.version:
+        print(__version__)
+        raise SystemExit
+    elif not args.job:
+        raise SystemExit("--job|-j required")
+
+    return args
 
 
 def replace2():
@@ -75,12 +90,6 @@ def replace2():
         description="Command line frontend for Replace2.py"
     )
     args = _replace(parser)
-
-    if args.version:
-        print(__version__)
-        raise SystemExit
-    elif not args.job:
-        raise SystemExit("--job|-j required")
 
     r = Replace2(
         act=args.act,
@@ -102,12 +111,6 @@ def replace3():
     )
     args = _replace(parser)
 
-    if args.version:
-        print(__version__)
-        raise SystemExit
-    elif not args.job:
-        raise SystemExit("--job|-j required")
-
     r = Replace3(
         act=args.act,
         baseURL=baseURL,
@@ -117,6 +120,6 @@ def replace3():
         user=user,
     )
     print("Searching...")
-    dataM = r.search()  # it's paramount that we get full records this time
+    dataM = r.search()  # needs full records this time
     print("Replacing...")
     r.replace(search_results=dataM)
