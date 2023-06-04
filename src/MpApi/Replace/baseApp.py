@@ -147,6 +147,7 @@ class BaseApp:
         The new conf values have different keys, distinguishing between the user-facing
         view (external) and the internal values RIA uses.
         """
+        print("Looking up internal conf values")
         new = {}
         new["module"] = conf["module"]
         new["savedQuery"] = conf["savedQuery"]
@@ -163,26 +164,38 @@ class BaseApp:
             except KeyError:
                 raise SyntaxError(f"ERROR: Unknown external field: {f_ex}")
 
-            f_in = list(RIA_data[mtype][f_ex].keys())[0]
+            try:
+                f_in = RIA_data[mtype][f_ex]
+            except:
+                pass
+            if not isinstance(f_in, str):
+                try:
+                    f_in = list(RIA_data[mtype][f_ex].keys())[0]
+                except:
+                    raise SyntaxError("Error: f_in not found!")
+            print(f"  {f_ex} -> {f_in}")
             action2["f_in"] = f_in
             action2["f_ex"] = f_ex
             action2["s_ex"] = s_ex
             action2["r_ex"] = r_ex
             action2["field"] = [x.strip() for x in f_in.split(":")]
-
-            # print(f"f_in: {f_in}")
+            # print ("  "+str(action2["field"]))
             try:
                 action2["s_in"] = RIA_data[mtype][f_ex][f_in][s_ex]
             except KeyError:
                 raise SyntaxError(
                     f"ERROR: external search value '{s_ex}' not in {mtype}: {f_ex}"
                 )
+            except TypeError:
+                action2["s_in"] = s_ex
             try:
                 action2["r_in"] = RIA_data[mtype][f_ex][f_in][r_ex]
-            except:
+            except KeyError:
                 raise SyntaxError(
                     f"ERROR: external replace value '{r_ex}' not in {mtype}: {f_ex}"
                 )
+            except:
+                action2["r_in"] = r_ex
 
             if action2["field"][0] not in (
                 "dataField",

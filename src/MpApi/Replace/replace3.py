@@ -73,8 +73,26 @@ class Replace3(BaseApp):
     #
 
     def _dataField(self, *, data, ID, action) -> bool:
-        print("dataField not implemented yet")
-        return False
+        mtype = self.conf["module"]
+        field = action["field"][1]
+        valueN = data.xpath(
+            f"""/m:application/m:modules/m:module[
+                @name='{mtype}'
+            ]/m:moduleItem[
+                @id = '{ID}'
+            ]/m:dataField[
+                @name = '{field}'
+            ]/m:value"""
+        )[0]
+        print(f"    {field} {action['s_in']} -> {action['r_in']}")
+        print(f"    current value: {valueN.text}")
+        if valueN.text == action["s_in"]:
+            print(f"\tsearch value found, replacing field content")
+            valueN.text = action["r_in"]
+            return True
+        else:
+            print(f"    search value NOT found")
+            return False
 
     def _per_item(self, *, doc: Module, ID: int) -> None:
         mtype = self.conf["module"]
@@ -99,19 +117,34 @@ class Replace3(BaseApp):
 
         print(f"    change? {change}")
         if any(change):
-            print("\tItem changed, attempting update ...")
-            xml = self._completeItem(data=doc, ID=ID)
-            m = Module(xml=xml)
-            m.toFile(path=f"{mtype}{ID}.xml")
-            # m.uploadForm()
-            # xml = m.toString()
-            # print (xml)
-            xml = xml.encode()  # why is this necessary?
-            r = self.ria.updateItem(module=mtype, id=ID, xml=xml)
-            print(f"  {r}")
+            self._updateItem(data=doc, ID=ID)
 
     def _repeatableGroup(self, *, data, ID, action):
-        print("repeatableGroup not implemented yet")
+        print("GH")
+        mtype = self.conf["module"]
+        field = action["field"][1]
+        subfield = action["field"][2]
+
+        rGrpID = data.xpath(
+            f"""/m:application/m:modules/m:module[
+                @name='{mtype}'
+            ]/m:moduleItem[
+                @id = '{ID}'
+            ]/m:repeatableGroup[
+                @name = '{field}' 
+            ]/m:vocabularyReference[
+                @name = '{subfield}'
+            ]/@id"""
+        )[0]
+        print(f"    {field} {action['s_in']} --> {action['r_in']}")
+        print(f"    current value: {rGrpID.text}")
+        if rGrpID.text == action["s_in"]:
+            print(f"\tsearch value found, replacing field content")
+            rGrpID.text = action["r_in"]
+            return True
+        else:
+            print(f"    search value NOT found")
+            return False
 
     def _systemField(self, *, data: Module, ID, action):
         mtype = self.conf["module"]
@@ -134,6 +167,22 @@ class Replace3(BaseApp):
         else:
             print(f"    search value NOT found")
             return False
+
+    def _updateItem(self, *, data: Module, ID: int):
+        if self.act:
+            print("\tItem changed, attempting update ...")
+            mtype = self.conf["module"]
+            xml = self._completeItem(data=data, ID=ID)
+            m = Module(xml=xml)
+            m.toFile(path=f"{mtype}{ID}.xml")
+            # m.uploadForm()
+            # xml = m.toString()
+            # print (xml)
+            xml = xml.encode()  # why is this necessary?
+            r = self.ria.updateItem(module=mtype, id=ID, xml=xml)
+            print(f"  {r}")
+        else:
+            print("Not acting")
 
     def _vocabularyReference(self, *, data, ID, action):
         """
