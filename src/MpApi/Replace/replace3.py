@@ -25,48 +25,8 @@ try:
 except ModuleNotFoundError:
     import tomli as tomllib  # < Python v3.11
 
-import pprint
-
 
 class Replace3(BaseApp):
-    def __init__(
-        self,
-        *,
-        act: bool = False,
-        baseURL: str,
-        conf_fn: str,
-        cache: bool = False,
-        limit: int = -1,
-        pw: str,
-        user: str,
-    ):
-        super().__init__(
-            act=act,
-            baseURL=baseURL,
-            conf_fn=conf_fn,
-            cache=cache,
-            limit=limit,
-            pw=pw,
-            user=user,
-        )
-        # pprint.pprint(self.conf)
-        self.conf = self._rewrite_conf(self.conf)
-        pprint.pprint(self.conf)
-
-    def replace(self, *, search_results: Module) -> None:
-        """
-        Loops through all items in the search results and call the actions for the
-        current job (i.e. in the toml config file).
-        """
-
-        mtype = self.conf["module"]
-        IDs = search_results.xpath(
-            f"/m:application/m:modules/m:module[@name='{mtype}']/m:moduleItem/@id"
-        )
-
-        # to avoid deep copy, so we loop thru one big document with many items
-        for ID in IDs:
-            self._per_item(doc=search_results, ID=ID)
 
     #
     # private

@@ -7,6 +7,7 @@ Code that is reusable over multiple replacer apps
 from lxml import etree
 from mpapi.client import MpApi
 from mpapi.module import Module
+import pprint
 
 try:
     import tomllib  # Python v3.11
@@ -71,7 +72,24 @@ class BaseApp:
         self.limit = limit
         self.ria = MpApi(baseURL=baseURL, user=user, pw=pw)
         self.conf = self._init_conf(conf_fn=conf_fn)
+        self.conf = self._rewrite_conf(self.conf)
+        pprint.pprint(self.conf)
         print(f"Logged in as {user}")
+
+    def replace(self, *, search_results: Module) -> None:
+        """
+        Loops through all items in the search results and call the actions for the
+        current job (i.e. in the toml config file).
+        """
+
+        mtype = self.conf["module"]
+        IDs = search_results.xpath(
+            f"/m:application/m:modules/m:module[@name='{mtype}']/m:moduleItem/@id"
+        )
+
+        # to avoid deep copy, so we loop thru one big document with many items
+        for ID in IDs:
+            self._per_item(doc=search_results, ID=ID)
 
     def search(self) -> Module:
         """
@@ -126,6 +144,22 @@ class BaseApp:
         m = Module(xml=xml)
         moduleN = m.xpath("/m:application/m:modules/m:module")[0]
         moduleN.append(mItemN)
+        return m.toString()
+
+    def _field2xml(self, node):
+        xml = f"""
+            <application xmlns="http://www.zetcom.com/ria/ws/module">
+                <modules>
+                    <module name="{mtype}">
+                        <moduleItem id="{ID}"/>
+                    </module>
+                </modules>
+            </application>"""
+        doc = etree.XML(xml)
+        mItemN = doc.xpath(
+            "/m:application/m:modules/m:module/m:moduleItem", namespaces=NSMAP
+        )[0]
+        mItemN.append(node)
         return m.toString()
 
     def _init_conf(self, *, conf_fn: str) -> dict:
