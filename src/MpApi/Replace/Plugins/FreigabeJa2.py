@@ -50,11 +50,11 @@ jaId = 1810139
     """
 
 
-class FreigabeNein:
+class FreigabeJa:
     def Input(self):
         groups = {
-            "Instrumente-red.Teile": 467399,
-            # "online Instrumente": 467397
+            # "Instrumente-red.Teile": 467399,
+            "online Instrumente": 467397
         }
         return groups
 
@@ -104,9 +104,10 @@ class FreigabeNein:
         """
         rGrpItemL = itemN.xpath(
             """m:repeatableGroup[
-            @name='ObjPublicationGrp']/m:repeatableGroupItem[
+                @name='ObjPublicationGrp']/m:repeatableGroupItem[
                     m:vocabularyReference[@name = 'TypeVoc']/
                     m:vocabularyReferenceItem[@id = '2600647']
+                ]
             ]""",
             namespaces=NSMAP,
         )  # SMB-Freigabe
@@ -116,15 +117,15 @@ class FreigabeNein:
         # it's technically possible to have multiple SMB-Freigaben...
         # although that should not happen
         if len(rGrpItemL) > 0:
-            return self._setFreigabeNein(itemN=itemN, user=user)
+            return self._setFreigabeJa(itemN=itemN, user=user)
         else:
-            return self._mkNewFreigabeNein(itemN=itemN, user=user)
+            return self._mkNewFreigabeJa(itemN=itemN, user=user)
 
-    def _setFreigabeNein(self, *, itemN, user: str) -> dict:
+    def _setFreigabeJa(self, *, itemN, user: str) -> dict:
         objId = itemN.xpath("@id")[0]
         today = datetime.date.today()
         mtype = "Object"
-        print("   _setFreigabeNein")
+        print("   _setFreigabeJa")
         # SMB-Digital
         refId = itemN.xpath(
             """m:repeatableGroup[
@@ -159,8 +160,8 @@ class FreigabeNein:
         bemerkung2 = "MDVOS Revision der Instrumente"
 
         # dont do anything if already Nein
-        if freigabeId != neinId:
-            print("  Freigabe != Nein")
+        if freigabeId != jaId:
+            print("  Freigabe != Ja")
             # WARNING: regenerating instead of changing values!
             xml = f"""
                 <application xmlns="http://www.zetcom.com/ria/ws/module">
@@ -169,20 +170,14 @@ class FreigabeNein:
                             <moduleItem id="{objId}">
                                 <repeatableGroup name="ObjPublicationGrp">
                                     <repeatableGroupItem id="{refId}">
-                                        <dataField dataType="Date" name="ModifiedDateDat">
-                                           <value>{today}</value>
-                                        </dataField>
-                                        <dataField dataType="Varchar" name="ModifiedByTxt">
-                                           <value>{user}</value>
-                                        </dataField>
                                         <dataField dataType="Clob" name="NotesClb">
-                                            <value>{bemerkung}</value>
+                                            <value>{bemerkung2}</value>
                                         </dataField>
                                         <vocabularyReference 
                                             name="PublicationVoc" 
                                             id="62649" 
                                             instanceName="ObjPublicationVgr">
-                                            <vocabularyReferenceItem id="{neinId}"/>
+                                            <vocabularyReferenceItem id="{jaId}"/>
                                         </vocabularyReference>
                                         <vocabularyReference 
                                             name="TypeVoc" 
@@ -235,17 +230,11 @@ class FreigabeNein:
                   <moduleItem id="{Id}">
                     <repeatableGroup name="ObjPublicationGrp">
                         <repeatableGroupItem>
-                            <dataField dataType="Date" name="ModifiedDateDat">
-                               <value>{today}</value>
-                            </dataField>
-                            <dataField dataType="Varchar" name="ModifiedByTxt">
-                               <value>{user}</value>
-                            </dataField>
                             <dataField dataType="Clob" name="NotesClb">
-                                <value>{bemerkung}</value>
+                                <value>{bemerkung2}</value>
                             </dataField>
                             <vocabularyReference name="PublicationVoc" id="62649" instanceName="ObjPublicationVgr">
-                                <vocabularyReferenceItem id="{neinId}"/>
+                                <vocabularyReferenceItem id="{jaId}"/>
                             </vocabularyReference>
                             <vocabularyReference name="TypeVoc" id="62650" instanceName="ObjPublicationTypeVgr">
                                 <vocabularyReferenceItem id="2600647"/>

@@ -50,11 +50,11 @@ jaId = 1810139
     """
 
 
-class FreigabeNein:
+class FreigabeJa:
     def Input(self):
         groups = {
-            "Instrumente-red.Teile": 467399,
-            # "online Instrumente": 467397
+            # "Instrumente-red.Teile": 467399,
+            "online Instrumente": 467397
         }
         return groups
 
@@ -87,14 +87,16 @@ class FreigabeNein:
         query.addField(field="ObjPublicationGrp.PublicationVoc")
         query.addField(field="ObjPublicationGrp.TypeVoc")
         query.addField(field="ObjPublicationGrp.NotesClb")
+        query.addField(field="ObjPublicationGrp.ModifiedDateDat")
+        query.addField(field="ObjPublicationGrp.ModifiedByTxt")
         query.print()
         query.validate(mode="search")
         return query
 
     def onItem(self):
-        return self.setFreigabeNein
+        return self.setFreigabeJa
 
-    def setFreigabeNein(self, *, itemN, user: str) -> dict:
+    def setFreigabeJa(self, *, itemN, user: str) -> dict:
         """
         if SMB-Freigabe:
             if Freigabe=Ja -> set it to Nein
@@ -104,9 +106,10 @@ class FreigabeNein:
         """
         rGrpItemL = itemN.xpath(
             """m:repeatableGroup[
-            @name='ObjPublicationGrp']/m:repeatableGroupItem[
-                    m:vocabularyReference[@name = 'TypeVoc']/
-                    m:vocabularyReferenceItem[@id = '2600647']
+                @name='ObjPublicationGrp'
+            ]/m:repeatableGroupItem[
+                m:vocabularyReference[@name = 'TypeVoc']/
+                m:vocabularyReferenceItem[@id = '2600647']
             ]""",
             namespaces=NSMAP,
         )  # SMB-Freigabe
@@ -116,15 +119,15 @@ class FreigabeNein:
         # it's technically possible to have multiple SMB-Freigaben...
         # although that should not happen
         if len(rGrpItemL) > 0:
-            return self._setFreigabeNein(itemN=itemN, user=user)
+            return self._setFreigabeJa(itemN=itemN, user=user)
         else:
-            return self._mkNewFreigabeNein(itemN=itemN, user=user)
+            return self._mkNewFreigabeJa(itemN=itemN, user=user)
 
-    def _setFreigabeNein(self, *, itemN, user: str) -> dict:
+    def _setFreigabeJa(self, *, itemN, user: str) -> dict:
         objId = itemN.xpath("@id")[0]
         today = datetime.date.today()
         mtype = "Object"
-        print("   _setFreigabeNein")
+        print("   _setFreigabeJa")
         # SMB-Digital
         refId = itemN.xpath(
             """m:repeatableGroup[
@@ -159,8 +162,8 @@ class FreigabeNein:
         bemerkung2 = "MDVOS Revision der Instrumente"
 
         # dont do anything if already Nein
-        if freigabeId != neinId:
-            print("  Freigabe != Nein")
+        if freigabeId != jaId:
+            print("  Freigabe != Ja")
             # WARNING: regenerating instead of changing values!
             xml = f"""
                 <application xmlns="http://www.zetcom.com/ria/ws/module">
@@ -176,13 +179,13 @@ class FreigabeNein:
                                            <value>{user}</value>
                                         </dataField>
                                         <dataField dataType="Clob" name="NotesClb">
-                                            <value>{bemerkung}</value>
+                                            <value>{bemerkung2}</value>
                                         </dataField>
                                         <vocabularyReference 
                                             name="PublicationVoc" 
                                             id="62649" 
                                             instanceName="ObjPublicationVgr">
-                                            <vocabularyReferenceItem id="{neinId}"/>
+                                            <vocabularyReferenceItem id="{jaId}"/>
                                         </vocabularyReference>
                                         <vocabularyReference 
                                             name="TypeVoc" 
@@ -205,13 +208,13 @@ class FreigabeNein:
                 "id": objId,
                 "repeatableGroup": "ObjPublicationGrp",
                 "xml": xml,
-                "success": f"{mtype} {objId}: change SMBfreigabe to Nein",
+                "success": f"{mtype} {objId}: changed SMBfreigabe to Ja",
                 "refId": refId,
             }
             return payload
         # else: return None
 
-    def _mkNewFreigabeNein(self, *, itemN, user: str) -> dict:
+    def _mkNewFreigabeJa(self, *, itemN, user: str) -> dict:
         Id = itemN.xpath("@id")[0]
         today = datetime.date.today()
         mtype = "Object"
@@ -221,12 +224,6 @@ class FreigabeNein:
         bemerkung2 = "MDVOS Revision der Instrumente"
 
         # should be handled automatically
-        # <dataField dataType="Date" name="ModifiedDateDat">
-        #    <value>{today}</value>
-        # </dataField>
-        # <dataField dataType="Varchar" name="ModifiedByTxt">
-        #    <value>EM_MM1</value>
-        # </dataField>
 
         xml = f"""
             <application xmlns="http://www.zetcom.com/ria/ws/module">
@@ -242,10 +239,10 @@ class FreigabeNein:
                                <value>{user}</value>
                             </dataField>
                             <dataField dataType="Clob" name="NotesClb">
-                                <value>{bemerkung}</value>
+                                <value>{bemerkung2}</value>
                             </dataField>
                             <vocabularyReference name="PublicationVoc" id="62649" instanceName="ObjPublicationVgr">
-                                <vocabularyReferenceItem id="{neinId}"/>
+                                <vocabularyReferenceItem id="{jaId}"/>
                             </vocabularyReference>
                             <vocabularyReference name="TypeVoc" id="62650" instanceName="ObjPublicationTypeVgr">
                                 <vocabularyReferenceItem id="2600647"/>
@@ -264,7 +261,7 @@ class FreigabeNein:
             "id": Id,
             "repeatableGroup": "ObjPublicationGrp",
             "xml": xml,
-            "success": f"{mtype} {Id}: set object smbfreigabe",
+            "success": f"{mtype} {Id}: set object smbfreigabe Ja",
         }
         return payload
 
