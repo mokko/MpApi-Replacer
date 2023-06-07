@@ -12,8 +12,6 @@
         replacer2 -a -c
     
 """
-
-
 import argparse
 import datetime
 from copy import deepcopy

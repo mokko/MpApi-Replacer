@@ -70,7 +70,6 @@ class WestFreigabe:
         query.addField(field="ObjPublicationGrp.PublicationVoc")
         query.addField(field="ObjPublicationGrp.TypeVoc")
         # query.print()
-        query.validate(mode="search")
         return query
 
     def onItem(self):

@@ -17,7 +17,6 @@ except ModuleNotFoundError:
 
 # user-facing field names: no space, no period, no slash
 RIA_data = {
-    "Asset": {},
     "Multimedia": {
         "Anlass": "vocabularyReference:MulShootingReasonVoc",
         "Bereich": {
@@ -51,6 +50,19 @@ RIA_data = {
         "Status": "vocabularyReference:MulStatusVoc",
         "TypDetails": "dataField:MulTypeTxt",
         "Typ": "vocabularyReference:MulTypeVoc",
+    },
+    "Object": {
+        "Freigabe.Freigabe": {
+            "repeatableGroup:ObjPublicationGrp:PublicationVoc": {
+                "Ja": 1810139,
+                "Nein": 4491690,
+            }
+        },
+        "Freigabe.Typ": {
+            "repeatableGroup:ObjPublicationGrp:TypeVoc": {
+                "Daten freigegeben für SMB-digital": 2600647,
+            }
+        },
     },
 }
 
