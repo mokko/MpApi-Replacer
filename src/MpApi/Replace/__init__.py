@@ -6,7 +6,7 @@ import argparse
 from mpapi.constants import get_credentials
 from pathlib import Path
 from MpApi.Replace.replace1 import Replace1
-from MpApi.Replace.replace2 import Replace2
+from MpApi.Replace.replace2 import Replace2 # atomic replacer
 from MpApi.Replace.replace3 import Replace3
 
 user, pw, baseURL = get_credentials()

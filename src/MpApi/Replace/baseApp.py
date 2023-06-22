@@ -255,6 +255,50 @@ class BaseApp:
 
         return new
 
+    def _parse_conf(self, conf:dict) -> dict:
+        """
+        This is the new version of the config file parser. Main upshot is that for every 
+        record changes in multiple fields can be described.
+        
+        Keywords
+        - filter: narrow down the nodes that are effected by the changes; can be repeated
+          to add multiple conditions; adding filters implies a logical AND. Logical OR 
+          will not be supported.
+        - new: create new nodes where there were none before
+        - write: overwrite values in existing nodes; does not send an update if field 
+          already has the target value.
+          use together with filter or query to achieve a classic search/replace.
+        - new_or_write: creates a new element, if there is none or, if it already exists
+          set the new target value if that the current value is not yet target value
+        
+        Example for SMB-Freigabe
+        query results in Objects from a certain object group; we want to set Freigabe=Ja
+        for all of them. We dont not want to change records that are explictly marked as
+        Freigabe=Nein, so I have to use query or filter to exclude those
+
+        mtype = "Object"
+        saved_query = 12345
+        [Filter]
+            action = "filter"
+            ftype = "repeatableGroup.dataField"
+            field = "ObjPublicationGrp.Freigabe"
+            match = "not equals"
+            value = "Nein"
+        [Freigabe1]
+            action = "new_or_write"
+            ftype = "repeatableGroup.dataField"
+            field = "ObjPublicationGrp.Freigabe" 
+            value = "Ja"
+        [Freigabe2]
+            action = "new_or_write"
+            field = "repeatableGroup:ObjPublicationGrp.dataField:Typ", 
+            value = "Freigabe für SMB-Digital"
+        [Freigabe3]
+            action = "new_or_write"
+            field = "ObjPublicationGrp.Bemerkung", 
+            value = "Freigegeben durch MDVOS"
+        """
+
     # should probably not be here
     def _toString(self, node) -> None:
         return etree.tostring(node, pretty_print=True, encoding="unicode")

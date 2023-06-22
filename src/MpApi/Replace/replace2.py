@@ -1,4 +1,8 @@
 """
+    Replacer2 is the atomic replacer which make api requests per individual per field 
+    changes. This method might be slower, but it leads to cleaner logs and is hence
+    superior.
+
     Replacer2 is different from replacer1 in that it 
     - takes saved queries as input and
     - it allows only to replace existing values with new values
@@ -41,51 +45,6 @@ class Replace2(BaseApp):
         moduleItem.
         """
         return int(itemN.xpath("/m:moduleItem/@id", namespaces=NSMAP)[0])
-
-    def _perItem(self, *, itemN, mtype: str) -> None:
-        """
-        OBSOLETE
-        Process individual items (=record), expects itemN as a node
-
-        This is the second step of the actual replacement process.
-        """
-        Id = itemN.xpath("@id")[0]  # there can be only one
-        xml = f"""
-            <application xmlns="http://www.zetcom.com/ria/ws/module">
-                <modules>
-                    <module name="{mtype}"/>
-                </modules>
-            </application>"""
-        outer = etree.fromstring(xml, parser)
-        moduleN = outer.xpath("/m:application/m:modules/m:module", namespaces=NSMAP)[0]
-        moduleN.append(itemN)
-        itemM = Module(tree=outer)
-        itemM.uploadForm()
-        print(f"{mtype} {mulId}")
-        for action in self.conf["actions"]:
-            old = self.conf["actions"][action]["old"]
-            new = self.conf["actions"][action]["new"]
-            if mtype == "Multimedia":
-                if action == "Typ":
-                    self.MulTypeVoc(
-                        itemM=itemM, old=old, new=new
-                    )  # change data in place
-                elif action == "SMB-Freigabe":
-                    self.smbapproval(itemM=itemM, old=old, new=new)
-                else:
-                    raise TypeError(f"Not yet implemented: {action}")
-            else:
-                raise TypeError(f"Not yet implemented: {action}")
-
-        fn = f"{mtype}-{mulId}.afterReplace.xml"
-        print(f"Writing to {fn}")
-        itemM.toFile(path=fn)
-        itemM.validate()
-
-        if self.act:
-            # currently updates even if nothing has changed
-            request = self.ria.updateItem2(mtype=mtype, ID=mulId, data=itemM)
-            print(f"Status code: {request.status_code}")
 
     def _dataField(self, *, action: dict, data: Module, ID: int) -> None:
         mtype = self.conf["module"]

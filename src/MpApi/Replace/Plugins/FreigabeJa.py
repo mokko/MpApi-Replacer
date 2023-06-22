@@ -8,45 +8,42 @@ neinId = 4491690
 jaId = 1810139
 
 """
-    WARNING: This is quick and dirty. I
+    WARNING: This is quick and dirty. 
 
-    For the records in one or more groups, set them to SMB-Freigabe = Nein
-    if Freigabe is not already "Nein".
+    TASK: For the records in one or more groups, set them to SMB-Freigabe = Ja if 
+    Freigabe is not already "Ja".
 
-    There are at least two possible cases for the situation
-    (a) no SMBfreigabe has been set before -> add a new one
-    (b) SMBfreigabe exists already and it's not Nein 
-        (probably None or Ja) -> change to Nein.
+    There are three possible cases for the situation
+    (a) no SMBfreigabe has NOT been set before -> add/create a new one
+    (b) SMBfreigabe = Ja -> do nothing
+    (c) SMBfreigabe = Nein -> change to Ja
+    (d) SMBfreigabe = None -> change to Ja
 
-    Leave records with smbFreigabe = Nein alone.
-
-    "Nein" has the voc ID 4491690
-    
-     <repeatableGroup name="ObjPublicationGrp" size="1">
-          <repeatableGroupItem id="54108205" uuid="8e798bbb-6840-49ef-aea4-87260f37277b">
-            <dataField dataType="Date" name="ModifiedDateDat">
-              <value>2023-06-06</value>
-              <formattedValue language="de">06.06.2023</formattedValue>
-            </dataField>
-            <dataField dataType="Varchar" name="ModifiedByTxt">
-              <value>EM_MM</value>
-            </dataField>
-            <dataField dataType="Long" name="SortLnu">
-              <value>1</value>
-              <formattedValue language="de">1</formattedValue>
-            </dataField>
-            <vocabularyReference name="PublicationVoc" id="62649" instanceName="ObjPublicationVgr">
-              <vocabularyReferenceItem id="4491690" name="Nein">
-                <formattedValue language="de">Nein</formattedValue>
-              </vocabularyReferenceItem>
-            </vocabularyReference>
-            <vocabularyReference name="TypeVoc" id="62650" instanceName="ObjPublicationTypeVgr">
-              <vocabularyReferenceItem id="2600647" name="Daten freigegeben für SMB-digital">
-                <formattedValue language="de">Daten freigegeben für SMB-digital</formattedValue>
-              </vocabularyReferenceItem>
-            </vocabularyReference>
-          </repeatableGroupItem>
-        </repeatableGroup>
+    <repeatableGroup name="ObjPublicationGrp" size="1">
+      <repeatableGroupItem id="54108205" uuid="8e798bbb-6840-49ef-aea4-87260f37277b">
+        <dataField dataType="Date" name="ModifiedDateDat">
+          <value>2023-06-06</value>
+          <formattedValue language="de">06.06.2023</formattedValue>
+        </dataField>
+        <dataField dataType="Varchar" name="ModifiedByTxt">
+          <value>EM_MM</value>
+        </dataField>
+        <dataField dataType="Long" name="SortLnu">
+          <value>1</value>
+          <formattedValue language="de">1</formattedValue>
+        </dataField>
+        <vocabularyReference name="PublicationVoc" id="62649" instanceName="ObjPublicationVgr">
+          <vocabularyReferenceItem id="4491690" name="Nein">
+            <formattedValue language="de">Nein</formattedValue>
+          </vocabularyReferenceItem>
+        </vocabularyReference>
+        <vocabularyReference name="TypeVoc" id="62650" instanceName="ObjPublicationTypeVgr">
+          <vocabularyReferenceItem id="2600647" name="Daten freigegeben für SMB-digital">
+            <formattedValue language="de">Daten freigegeben für SMB-digital</formattedValue>
+          </vocabularyReferenceItem>
+        </vocabularyReference>
+      </repeatableGroupItem>
+    </repeatableGroup>
     """
 
 
@@ -108,8 +105,11 @@ class FreigabeJa:
             """m:repeatableGroup[
                 @name='ObjPublicationGrp'
             ]/m:repeatableGroupItem[
-                m:vocabularyReference[@name = 'TypeVoc']/
-                m:vocabularyReferenceItem[@id = '2600647']
+                m:vocabularyReference[
+                    @name = 'TypeVoc'
+                ]/m:vocabularyReferenceItem[
+                    @id = '2600647'
+                ]
             ]""",
             namespaces=NSMAP,
         )  # SMB-Freigabe
@@ -119,15 +119,15 @@ class FreigabeJa:
         # it's technically possible to have multiple SMB-Freigaben...
         # although that should not happen
         if len(rGrpItemL) > 0:
-            return self._setFreigabeJa(itemN=itemN, user=user)
+            return self._changeFreigabeJa(itemN=itemN, user=user)
         else:
             return self._mkNewFreigabeJa(itemN=itemN, user=user)
 
-    def _setFreigabeJa(self, *, itemN, user: str) -> dict:
+    def _changeFreigabeJa(self, *, itemN, user: str) -> dict:
         objId = itemN.xpath("@id")[0]
         today = datetime.date.today()
         mtype = "Object"
-        print("   _setFreigabeJa")
+        print("   _changeFreigabeJa")
         # SMB-Digital
         refId = itemN.xpath(
             """m:repeatableGroup[
@@ -158,11 +158,41 @@ class FreigabeJa:
 
         print(f"  freigabeId = {freigabeId}")
 
-        bemerkung = "redundantes Teil"
+        """
+        If we DONT re-generate a new ObjPublicationGrp, but just change an existing one
+        we do this to not potentially overwrite other fields that I haven't checked for. 
+        
+        So which values do we want to change
+        1) dataField: ModifiedDateDat
+        2) dataField: ModifiedByTxt
+        3) dataField: NotesClb
+        4) vocRefItem: PublicationVoc
+        
+        We will just assume that any of these values may not yet exist, so we test first 
+        if they exist, create them or change them.
+        
+        if ModifiedDateDat:
+            change_value(new_value)
+        else:
+            new_field(new_value)
+
+        docN, contextN, new_value
+        
+        crud: create, read, update, delete
+        
+        read(doc, context, field)
+        
+        create_or_update
+        
+        while vocRefItem: TypeVoc remains as is.
+        """
+        
+        
+
         bemerkung2 = "MDVOS Revision der Instrumente"
 
-        # dont do anything if already Nein
-        if freigabeId != jaId:
+        if freigabeId != jaId: 
+            # dont do anything if already ja
             print("  Freigabe != Ja")
             # WARNING: regenerating instead of changing values!
             xml = f"""
