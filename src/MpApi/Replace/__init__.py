@@ -5,14 +5,14 @@ import argparse
 
 from mpapi.constants import get_credentials
 from pathlib import Path
-from MpApi.Replace.replace1 import Replace1
-from MpApi.Replace.replace2 import Replace2 # atomic replacer
-from MpApi.Replace.replace3 import Replace3
+from MpApi.replace1 import Replace1
+from MpApi.replace2 import Replace2 # atomic replacer
+from MpApi.replace3 import Replace3 # discontinued atm
 
 user, pw, baseURL = get_credentials()
 
 
-def replace1():
+def replacer1():
     parser = argparse.ArgumentParser(description="Command line frontend for Replace.py")
     parser.add_argument(
         "-c",
@@ -85,7 +85,7 @@ def _replace(parser) -> dict:
     return args
 
 
-def replace2():
+def replacer2():
     parser = argparse.ArgumentParser(
         description="Command line frontend for Replace2.py"
     )
@@ -105,7 +105,7 @@ def replace2():
     r.replace(search_results=dataM)
 
 
-def replace3():
+def replacer3():
     parser = argparse.ArgumentParser(
         description="Command line frontend for Replace3.py"
     )

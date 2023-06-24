@@ -22,6 +22,6 @@ test = [
 ]
 
 [project.scripts]
-mpReplace1 = 'MpApi.Replace:replace1'
-mpReplace2 = 'MpApi.Replace:replace2'
-mpReplace3 = 'MpApi.Replace:replace3'
+mpReplace1 = 'MpApi.Replace:replacer1'
+mpReplace2 = 'MpApi.Replace:replacer2'
+mpReplace3 = 'MpApi.Replace:replacer3'

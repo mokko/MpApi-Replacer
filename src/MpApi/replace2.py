@@ -17,14 +17,14 @@
     
 """
 import argparse
-import datetime
 from copy import deepcopy
+import datetime
 from lxml import etree
 from mpapi.client import MpApi
 from mpapi.constants import NSMAP, parser
 from mpapi.module import Module
-from pathlib import Path
 from MpApi.Replace.baseApp import BaseApp
+from pathlib import Path
 import sys
 
 
