@@ -186,12 +186,10 @@ class FreigabeJa:
         
         while vocRefItem: TypeVoc remains as is.
         """
-        
-        
 
         bemerkung2 = "MDVOS Revision der Instrumente"
 
-        if freigabeId != jaId: 
+        if freigabeId != jaId:
             # dont do anything if already ja
             print("  Freigabe != Ja")
             # WARNING: regenerating instead of changing values!

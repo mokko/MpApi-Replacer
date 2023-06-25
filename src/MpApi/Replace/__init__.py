@@ -1,13 +1,14 @@
-"""An Unofficial Client for the MuseumPlus API"""
+"""MpApi.Replace - Several replacer tools for MpApi"""
 
 __version__ = "0.0.4"  # new: replace3.py
 import argparse
 
 from mpapi.constants import get_credentials
 from pathlib import Path
-from MpApi.replace1 import Replace1
-from MpApi.replace2 import Replace2 # atomic replacer
-from MpApi.replace3 import Replace3 # discontinued atm
+
+from MpApi.Replace.replace1 import Replace1
+from MpApi.Replace.replace2 import Replace2  # atomic replacer
+from MpApi.Replace.replace3 import Replace3  # discontinued atm
 
 user, pw, baseURL = get_credentials()
 
