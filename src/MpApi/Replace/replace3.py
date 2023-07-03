@@ -15,7 +15,7 @@ from lxml import etree
 from mpapi.client import MpApi
 from mpapi.constants import NSMAP, parser
 from mpapi.module import Module
-from MpApi.Replace.baseApp import BaseApp, RIA_data
+from MpApi.Replace.baseApp import BaseApp
 from pathlib import Path
 
 # import sys

@@ -10,61 +10,16 @@ from mpapi.module import Module
 import pprint
 
 try:
-    import tomllib  # Python v3.11
+    import tomllib  
 except ModuleNotFoundError:
     import tomli as tomllib  # < Python v3.11
 
+allowed_match = ("=", "!=") # why does eq and ne not work? Is that not valid xpath?
+allowed_types = ("dataField", "repeatableGroup", "systemField", "virtualField", "vocabularyReference")
 
-# user-facing field names: no space, no period, no slash
-RIA_data = {
-    "Multimedia": {
-        "Anlass": "vocabularyReference:MulShootingReasonVoc",
-        "Bereich": {
-            "systemField:__orgUnit": {
-                "EM-Afrika": "EMAfrika1",
-                "EM-Allgemein": "EMAllgemein",
-                "EM-Am Archaologie": "EMAmArchaologie",
-                "EM-Am Ethnologie": "EMAmEthnologie",
-                "EM-Medienarchiv": "EMMedienarchiv",
-                "EM-Musikethnologie": "EMMusikethnologie",
-            }
-        },
-        "Datum": "dataField:MulDateTxt",  # Freitext
-        "Farbe": "vocabularyReference:MulColorVoc",
-        "Format": "vocabularyReference:MulFormatVoc",
-        "Freigabe.Freigabe": {
-            "repeatableGroup:MulApprovalGrp:ApprovalVoc": {
-                "Ja": 4160027,
-                "Nein": 4160028,
-            }
-        },
-        "Funktion": {
-            "vocabularyReference:MulCategoryVoc": {
-                "Audio": 1055742,
-                "Arbeitsfoto": 4771972,
-                "Video": 5042851,
-            },
-        },
-        "InhAns": "dataField:MulSubjectTxt",
-        "MatTech": "vocabularyReference:MulMatTechVoc",
-        "Status": "vocabularyReference:MulStatusVoc",
-        "TypDetails": "dataField:MulTypeTxt",
-        "Typ": "vocabularyReference:MulTypeVoc",
-    },
-    "Object": {
-        "Freigabe.Freigabe": {
-            "repeatableGroup:ObjPublicationGrp:PublicationVoc": {
-                "Ja": 1810139,
-                "Nein": 4491690,
-            }
-        },
-        "Freigabe.Typ": {
-            "repeatableGroup:ObjPublicationGrp:TypeVoc": {
-                "Daten freigegeben für SMB-digital": 2600647,
-            }
-        },
-    },
-}
+
+class ConfigError(Exception):
+    pass
 
 
 class BaseApp:
@@ -83,8 +38,8 @@ class BaseApp:
         self.cache = cache
         self.limit = limit
         self.ria = MpApi(baseURL=baseURL, user=user, pw=pw)
-        self.conf = self._init_conf(conf_fn=conf_fn)
-        self.conf = self._rewrite_conf(self.conf)
+        conf = self._init_conf(conf_fn=conf_fn)
+        self.conf = self._parse_conf(conf)
         pprint.pprint(self.conf)
         print(f"Logged in as {user}")
 
@@ -94,7 +49,7 @@ class BaseApp:
         current job (i.e. in the toml config file).
         """
 
-        mtype = self.conf["module"]
+        mtype = self.conf["INPUT"]["mtype"]
         IDs = search_results.xpath(
             f"/m:application/m:modules/m:module[@name='{mtype}']/m:moduleItem/@id"
         )
@@ -105,25 +60,124 @@ class BaseApp:
 
     def search(self) -> Module:
         """
-        Either make a new query to RIA or return the cached results from previous run
-        (in cache mode).
-
-        It's the user's the responsibility to decide when they want to make a new query.
-
-        Returns Module data potentially with many items/records.
+        Get the initial input from RIA, then process the filters to weed out some
+        more records.
         """
-        qId = self.conf["savedQuery"]
-        fn = f"savedQuery-{qId}.xml"
-        if self.cache:
-            print(f"* Getting search results from file cache '{fn}'")
-            m = Module(file=fn)
+        
+        m = self._get_input()
+        m = self._process_filters(data=m)
+        m.toFile(path="debug.afterFilter.xml")
+        return m
+    
+    def _process_filters(self, data:Module) -> Module:   
+
+        try:
+            self.conf["FILTER"]
+        except:
+            return data
+        
+        if len(data) == 0:
+            raise ConfigError("ERROR: Search returns 0 results")
+        
+        for each in self.conf["FILTER"]:
+            data = self._each_filter(Filter=each, data=data)
+        return data
+ 
+    def _each_filter(self, *, Filter:dict, data:Module) -> Module:
+        mtype = self.conf["INPUT"]["mtype"]
+        types = Filter["type"].split(".")
+        fields = Filter["field"].split(".")
+        match = Filter["match"]
+        value = Filter["value"]
+
+        if match not in allowed_match:
+            raise ConfigError(f"ERROR: Unknown match {match}")
+
+        for atype in types:
+            if atype not in allowed_types:
+                raise ConfigError(f"ERROR: Unknown field type '{atype}'")
+
+        xpath = f"/m:application/m:modules/m:module[@name='{mtype}']/m:moduleItem"
+        xpath += "[" 
+
+        for c in range(len(types)):
+            atype = types[c]
+            afield = fields[c]
+            if atype == "repeatableGroup":
+                xpath += f"m:{atype}[@name='{afield}']" 
+                xpath += "/m:repeatableGroupItem"
+            elif atype == "vocabularyReference":
+                xpath += f"m:{atype}[@name='{afield}']" 
+            elif atype == "dataField" or atype == "systemField" or atype == "virtualField":
+                xpath += f"m:{atype}"
+            else:
+                raise ConfigError (f"filter type '{atype }' not yet implemented")
+            
+            if c < (len(types)-1): # not last one 
+                xpath += "/"
+
+        if types[-1] == "vocabularyReference": 
+            xpath += f"/m:vocabularyReferenceItem[@id {match} '{value}']"
+        elif types[-1] == "dataField" or types[-1] == "systemField" or types[-1] == "virtualField":
+            xpath += f"[m:value {match} '{value}']"
         else:
-            print(f"* New query ID {qId} {self.conf['module']}")
-            m = self.ria.runSavedQuery3(
-                ID=qId, Type=self.conf["module"], limit=self.limit
-            )
-            print(f"* Writing search results to {fn}")
-            m.toFile(path=fn)  # overwrites old files
+            raise ConfigError (f"filter type '{atype }' not yet implemented")
+
+        xpath += "]" 
+
+        print (xpath)
+        resultL = data.xpath(xpath)
+        # wrap
+        new = Module()
+        moduleN = new.module(name=mtype)
+        for resultN in resultL:
+            moduleN.append(resultN)
+        #print (resultL)
+        print (len(new))
+        return new
+
+    def _get_input(self) -> Module:
+        INPUT = self.conf["INPUT"]
+        print (INPUT)
+        ID = None
+        search_type = None
+        try: 
+            self.conf["INPUT"]["saved_query"]
+        except: pass
+        else:
+            ID = int(self.conf["INPUT"]["saved_query"])
+            search_type = "savedQuery"
+        try: 
+            self.conf["INPUT"]["group"]
+        except: pass
+        else:
+            ID = int(self.conf["INPUT"]["group"])
+            search_type = "group"
+        if ID is None:
+            raise ConfigError(f"ERROR: Unknown search type '{search_type}'")
+
+        print(f"{search_type} {ID}")
+        cache_fn = f"{search_type}-{ID}.xml"
+
+        if self.cache:
+            print(f"* Getting search results from file cache '{cache_fn}'")
+            m = Module(file=cache_fn)
+        else:
+            m = self._search(search_type=search_type, ID=ID, cache_fn=cache_fn)
+
+        print (f"* results {len(m)}")
+        return m
+
+    def _search(self, *, ID: int, cache_fn: str, search_type: str) -> Module:
+        mtype = self.conf['INPUT']['mtype']
+        print(f"* Getting {mtype} from {search_type} {ID}")
+        if search_type == "savedQuery":
+            m = self.ria.runSavedQuery3(ID=ID, Type=mtype)
+        elif search_type == "group":
+            m = self.ria.getItem2(ID=ID, mtype=mtype)
+
+        print(f"* Writing search results to {cache_fn}")
+        m.toFile(path=cache_fn)  # overwrites old files
         return m
 
     #
@@ -176,129 +230,44 @@ class BaseApp:
 
     def _init_conf(self, *, conf_fn: str) -> dict:
         with open(conf_fn, "rb") as f:
-            conf = tomllib.load(f)
-
-        for required in ["module", "savedQuery", "replace"]:
-            if not required in conf:
-                raise Exception(
-                    f"ERROR: Required configuration value '{required}' missing!"
-                )
-        return conf
-
-    def _rewrite_conf(self, conf: dict) -> dict:
-        """
-        Rewrites external conf values with internal RIA ones; also some sanitizing as
-        values other than requested ones are dropped.
-
-        The new conf values have different keys, distinguishing between the user-facing
-        view (external) and the internal values RIA uses.
-        """
-        print("Looking up internal conf values")
-        new = {}
-        new["module"] = conf["module"]
-        new["savedQuery"] = conf["savedQuery"]
-        new["replace"] = []
-
-        mtype = conf["module"]
-        for action in conf["replace"]:
-            action2 = {}
-            f_ex = action["field"]
-            s_ex = action["search"]
-            r_ex = action["replace"]
-            try:
-                RIA_data[mtype][f_ex]
-            except KeyError:
-                raise SyntaxError(f"ERROR: Unknown external field: {f_ex}")
-
-            try:
-                f_in = RIA_data[mtype][f_ex]
-            except:
-                pass
-            if not isinstance(f_in, str):
-                try:
-                    f_in = list(RIA_data[mtype][f_ex].keys())[0]
-                except:
-                    raise SyntaxError("Error: f_in not found!")
-            print(f"  {f_ex} -> {f_in}")
-            action2["f_in"] = f_in
-            action2["f_ex"] = f_ex
-            action2["s_ex"] = s_ex
-            action2["r_ex"] = r_ex
-            action2["field"] = [x.strip() for x in f_in.split(":")]
-            # print ("  "+str(action2["field"]))
-            try:
-                action2["s_in"] = RIA_data[mtype][f_ex][f_in][s_ex]
-            except KeyError:
-                raise SyntaxError(
-                    f"ERROR: external search value '{s_ex}' not in {mtype}: {f_ex}"
-                )
-            except TypeError:
-                action2["s_in"] = s_ex
-            try:
-                action2["r_in"] = RIA_data[mtype][f_ex][f_in][r_ex]
-            except KeyError:
-                raise SyntaxError(
-                    f"ERROR: external replace value '{r_ex}' not in {mtype}: {f_ex}"
-                )
-            except:
-                action2["r_in"] = r_ex
-
-            if action2["field"][0] not in (
-                "dataField",
-                "repeatableGroup",
-                "systemField",
-                "vocabularyReference",
-            ):
-                raise SyntaxError(f"ERROR: Unknown field type: {action2['field'][0]}")
-
-            new["replace"].append(action2)
-
-        return new
+            return tomllib.load(f)
 
     def _parse_conf(self, conf: dict) -> dict:
         """
-        This is the new version of the config file parser. Main upshot is that for every
-        record changes in multiple fields can be described.
-
-        Keywords
-        - filter: narrow down the nodes that are effected by the changes; can be repeated
-          to add multiple conditions; adding filters implies a logical AND. Logical OR
-          will not be supported.
-        - new: create new nodes where there were none before
-        - write: overwrite values in existing nodes; does not send an update if field
-          already has the target value.
-          use together with filter or query to achieve a classic search/replace.
-        - new_or_write: creates a new element, if there is none or, if it already exists
-          set the new target value if that the current value is not yet target value
-
-        Example for SMB-Freigabe
-        query results in Objects from a certain object group; we want to set Freigabe=Ja
-        for all of them. We dont not want to change records that are explictly marked as
-        Freigabe=Nein, so I have to use query or filter to exclude those
-
-        mtype = "Object"
-        saved_query = 12345
-        [Filter]
-            action = "filter"
-            ftype = "repeatableGroup.dataField"
-            field = "ObjPublicationGrp.Freigabe"
-            match = "not equals"
-            value = "Nein"
-        [Freigabe1]
-            action = "new_or_write"
-            ftype = "repeatableGroup.dataField"
-            field = "ObjPublicationGrp.Freigabe"
-            value = "Ja"
-        [Freigabe2]
-            action = "new_or_write"
-            field = "repeatableGroup:ObjPublicationGrp.dataField:Typ",
-            value = "Freigabe für SMB-Digital"
-        [Freigabe3]
-            action = "new_or_write"
-            field = "ObjPublicationGrp.Bemerkung",
-            value = "Freigegeben durch MDVOS"
+        config parser for version 2 config files. This only copies allowed keywords and
+        doesn't do any significant testing on allowed keys and values on lower levels.
         """
+
+        new_conf = {}
+
+        try:
+            conf["INPUT"]
+        except:
+            raise ConfigError("Required config section 'INPUT' missing")
+        else:
+            new_conf["INPUT"] = conf["INPUT"]
+
+        for optional in (
+            "ADD",
+            "ADD_OR_NEW",
+            "FILTER",
+            "NEW",
+            "NEW_OR_WRITE",
+            "SUB",
+            "WRITE",
+        ):
+            try:
+                conf[optional]
+            except:
+                pass
+            else:
+                new_conf[optional] = conf[optional]
+        return new_conf
 
     # should probably not be here
     def _toString(self, node) -> None:
         return etree.tostring(node, pretty_print=True, encoding="unicode")
+
+
+if __name__ == "__main__":
+    pass

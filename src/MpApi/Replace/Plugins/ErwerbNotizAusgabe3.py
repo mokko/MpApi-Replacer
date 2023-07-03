@@ -6,9 +6,6 @@ from mpapi.module import Module
 from MpApi.Replace.Plugins.ErwerbNotizAusgabe import ErwerbNotizAusgabe
 import re
 
-
-# from Replace.ErwerbNotizAusgabe import ErwerbNotizAusgabe
-
 """
  Loop thru the objects of one or more group and write erwerbNotizAusgabe
  if there is none already, using the data from various fields
@@ -65,7 +62,8 @@ class ErwerbNotizAusgabe3(ErwerbNotizAusgabe):  # inheritance!
             # "m25KeramikII": 313398,
             # "m43AnnaNeu": 318397,
             # "m53": 319397
-            "Flavia": 31393
+            # "Flavia": 31393,
+            "Nicky's Bilder": 485397
         }
         return groups
 

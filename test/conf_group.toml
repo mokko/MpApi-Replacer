@@ -1,0 +1,4 @@
+[INPUT] # there can be only one
+	mtype = "ObjectGroup"
+	group = 487399 # 135 instruments 
+ 
