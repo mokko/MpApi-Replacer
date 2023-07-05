@@ -14,6 +14,17 @@
 
     Usage:
         replacer2 -a -c
+
+_per_item
+    per command: new, add, sub, write, [new_or_write, add_or_new]
+        
+        per element:
+
+
+Objektbeschreibung: Eine in Syrien gefertigte Oboe mit besonderen Intarsien.
+Feld mit ID: X durch Y austauschen.
+
+
     
 """
 import argparse
@@ -24,18 +35,195 @@ from mpapi.client import MpApi
 from mpapi.constants import NSMAP, parser
 from mpapi.module import Module
 from MpApi.Replace.baseApp import BaseApp
+from MpApi.Fieldmaker import dataField, systemField, virtualField
+
 from pathlib import Path
 import sys
+
+allowed_cmds = ("ADD", "ADD_OR_NEW", "NEW", "NEW_OR_WRITE", "SUB", "WRITE")
 
 
 class ConfigError(Exception):
     pass
 
 
+class FieldError(Exception):
+    pass
+
+
 class Replace2(BaseApp):
+    def add(self, *, cmd: dict, data: Module, ID: int) -> None:
+        """
+        Add a string to an existing field, raise FieldError if field does not
+        exist.
+
+        Raises FieldError if applied to id-based field.
+        """
+        cmd["field"]
+
+    def add_or_new(self, *, cmd: dict, data: Module, ID: int) -> None:
+        """
+        Like add, but creates a new field if it doesn't exist yet instead of raising an
+        error.
+        """
+        pass
+
+    def new(self, *, cmd: dict, data: Module, ID: int) -> None:
+        """
+        Create a new element with a certain value. Raises FieldError if field exists
+        already.
+        """
+        if self._field_exists(cmd=cmd, data=data, ID=ID):
+            raise FieldError("ERROR: New field exists already!")
+
+        fieldL = cmd["field"].split(".")
+        typeL = cmd["type"].split(".")
+        mtype = self.conf["INPUT"]["mtype"]
+        value = cmd["value"]
+
+        for c in range(len(typeL)):
+            if typeL[c] == "dataField":
+                field = dataField(name=fieldL[c], value=value)
+            if typeL[c] == "systemField":
+                field = systemField(name=fieldL[c], value=value)
+            if typeL[c] == "virtualField":
+                field = virtualField(name=fieldL[c], value=value)
+
+        # probably, we can make simple fields immediately
+        # should we check the first type only or all of the fields?
+        if (
+            typeL[0] == "dataField"
+            or typeL[0] == "systemField"
+            or typeL[0] == "virtualField"
+        ):
+            print(f"Simple NEW: {typeL[0]} {fieldL[0]} {value}")
+            self.ria.updateField2(mtype=mtype, ID=ID, dataField=fieldL[c], value=value)
+        elif cmd["type"] == "repeatableGroup.dataField":
+            # Das Problem hier ist, dass es zwar ObjPublicationGrp.NotesClb noch nicht gibt
+            # aber ObjPublicationGrp schon. 
+        
+            xml = f"""
+            <application xmlns="http://www.zetcom.com/ria/ws/module">
+                <modules>
+                    <module name="{mtype}">
+                        <moduleItem id="{ID}">
+                            <repeatableGroup name="{fieldL[0]}">
+                                <repeatableGroupItem>
+                                    <dataField name="{fieldL[1]}">
+                                        <value>{value}</value>
+                                    </dataField>
+                                </repeatableGroupItem>
+                            </repeatableGroup>
+                        </moduleItem>
+                    </module>
+                </modules>
+            </application>
+            """
+            # xml = xml.encode()
+            print (xml)
+            self.ria.createRepeatableGroup(
+                module=mtype, repeatableGroup=fieldL[0], xml=xml, id=ID
+            )
+        else:
+            print(f"not yet implemented: {cmd['type']}")
+
+    def _field_exists(self, *, cmd: dict, data: Module, ID: int) -> bool:
+        mtype = self.conf["INPUT"]["mtype"]
+        fieldL = cmd["field"].split(".")
+        typeL = cmd["type"].split(".")
+        xpath = f"/m:application/m:modules/m:module[@name='{mtype}']/m:moduleItem[@id = '{ID}']"
+        for c in range(len(typeL)):
+            xpath += f"/m:{typeL[c]}[@name = '{fieldL[c]}']"
+            if typeL[c] == "repeatableGroup":
+                xpath += "/m:repeatableGroupItem"
+            elif typeL[c] == "moduleReference":
+                xpath += "/m:moduleReferenceItem"
+            elif typeL[c] == "vocabularyReference":
+                xpath += "/m:vocabularyReferenceItem"
+
+        ret = data.xpath(xpath)
+        print(f"DEBUG _field_exists {xpath} -> {ret}")
+        # print (ret)
+        if ret:
+            return True
+        else:
+            return False
+
+    def new_or_write(self, *, cmd: dict, data: Module, ID: int) -> None:
+        """
+        Like write, but creates a new element instead of raising an error.
+        """
+        pass
+
+    def sub(self, *, cmd: dict, data: Module, ID: int) -> None:
+        """
+        Substract given value from the end of the given field. Raises FieldError if field
+        doesn't exist or if it doesn't end on specified string.
+        """
+        pass
+
+    def write(self, *, cmd: dict, data: Module, ID: int) -> None:
+        """
+        Overwrite current field value with new value. Raises FieldError if specified
+        field does not exist.
+
+        At the moment, we can't replace partial field values.
+        """
+        pass
 
     #
     # private
+    #
+
+    def _per_item(self, *, doc: Module, ID: int) -> None:
+        """
+        Gets called during replace for every moduleItem.
+        """
+        # mtype = self.conf["INPUT"]["mtype"]
+        # print(self.conf)
+        # print(f"  {mtype} {ID}")
+        for cmd in self.conf:
+            if cmd == "FILTER" or cmd == "INPUT":
+                continue
+            for specific in self.conf[cmd]:
+                print(f"* {cmd} {specific}")
+                if cmd == "ADD":
+                    try:
+                        self.add(cmd=specific, data=doc, ID=ID)
+                    except FieldError:
+                        print(f"{cmd}: error")
+                elif cmd == "ADD_OR_NEW":
+                    try:
+                        self.add_or_new(cmd=specific, data=doc, ID=ID)
+                    except FieldError:
+                        print(f"{cmd}: raises")
+                elif cmd == "NEW":
+                    try:
+                        self.new(cmd=specific, data=doc, ID=ID)
+                    except FieldError:
+                        print(
+                            f"{cmd}: '{specific['field']}' exists already; do nothing"
+                        )
+                elif cmd == "NEW_OR_WRITE":
+                    try:
+                        self.new_or_write(cmd=specific, data=doc, ID=ID)
+                    except FieldError:
+                        print(f"{cmd}: raises")
+                elif cmd == "SUB":
+                    try:
+                        self.sub(cmd=specific, data=doc, ID=ID)
+                    except FieldError:
+                        print(f"{cmd}: something clever")
+                elif cmd == "WRITE":
+                    try:
+                        self.write(cmd=specific, data=doc, ID=ID)
+                    except FieldError:
+                        print(f"{cmd}: something clever")
+                else:
+                    raise ConfigError(f"Unknown Command: {cmd}")
+
+    #
+    # OLD STUFF
     #
 
     # should be in a data oriented class?
@@ -74,22 +262,6 @@ class Replace2(BaseApp):
                 print("\tnot acting")
         else:
             print(f"\tsearch NOT found")
-
-    def _per_item(self, *, doc: Module, ID: int) -> None:
-        mtype = self.conf["module"]
-        print(f"  {mtype} {ID}")
-        for action in self.conf["replace"]:
-            # print (f"action {action}")
-            if action["field"][0] == "systemField":
-                self._systemField(action=action, data=doc, ID=ID)
-            elif action["field"][0] == "dataField":
-                self._dataField(action=action, data=doc, ID=ID)
-            elif action["field"][0] == "repeatableGroup":
-                self._repeatableGroup(action=action, data=doc, ID=ID)
-            elif action["field"][0] == "vocabularyReference":
-                self._vocabularyReference(action=action, data=doc, ID=ID)
-            else:
-                raise SyntaxError("ERROR: Unknown field type!")
 
     def _repeatableGroup(self, *, action: dict, data: Module, ID: int) -> None:
         """

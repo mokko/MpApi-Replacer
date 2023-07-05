@@ -31,7 +31,7 @@ def replacer1():
         "-j", "--job", help="load a plugin and use that code", required=True
     )
     parser.add_argument(
-        "-L", "--Limit", help="set limit for initial search", default="-1"
+        "-l", "--limit", help="set limit for initial search", default="-1"
     )
     parser.add_argument(
         "-v",
@@ -45,7 +45,7 @@ def replacer1():
         raise SystemExit
     r = Replace1(baseURL=baseURL, pw=pw, user=user, lazy=args.cache, act=args.act)
     plugin = r.job(plugin=args.job)
-    r.runPlugin(plugin=plugin, limit=args.Limit)
+    r.runPlugin(plugin=plugin, limit=args.limit)
 
 
 def _replace(parser) -> dict:
@@ -103,7 +103,7 @@ def replacer2():
     print("Searching...")
     dataM = r.search()
     print("Replacing...")
-    #r.replace(search_results=dataM)
+    # r.replace(search_results=dataM)
 
 
 def replacer3():

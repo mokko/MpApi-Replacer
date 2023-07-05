@@ -65,12 +65,11 @@ class Replace1:
         self, *, baseURL: str, user: str, pw: str, lazy: bool = False, act: bool = False
     ) -> None:
         print("baseURL: " + baseURL)
-        self.api = MpApi(baseURL=baseURL, user=user, pw=pw)
-        self.sar = Sar(baseURL=baseURL, user=user, pw=pw)
         self.act = act
+        self.api = MpApi(baseURL=baseURL, user=user, pw=pw)
         self.lazy = lazy
+        self.sar = Sar(baseURL=baseURL, user=user, pw=pw)
         self.user = user  # for _smbfreigabe
-
         print(f"ACT: {self.act}")
         print(f"LAZY: {self.lazy}")
 
@@ -113,7 +112,7 @@ class Replace1:
             # print (f"{count} inside replace; should be 1")
             yield onItem(itemN=itemN, user=self.user)
 
-    def runPlugin(self, *, plugin: Any, limit: int = -1) -> None:
+    def runPlugin(self, *, plugin: Any, limit:int = -1) -> None:
         """
         runs the plugin which may change the db.
         Prints the number of changes that have been (act mode) or would have
@@ -129,7 +128,7 @@ class Replace1:
         count = int(0)
         for key in Input:
             print(f"INPUT {key}")
-            query = plugin.search(Id=Input[key])
+            query = plugin.search(Id=Input[key], limit=limit)
             query.validate(mode="search")
             # should validate the query inside replacer? Probably yes
             self.search(query=query, Id=Input[key])

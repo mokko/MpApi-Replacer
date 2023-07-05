@@ -1,4 +1,35 @@
 [INPUT] # there can be only one
 	mtype = "Object"
-	saved_query = 494068 # one LP 
+	saved_query = 494068 # one LP
+[[FILTER]]
+	field = "__id"
+	type = "systemField"
+	match = "="
+	value = 1838348
+# Es kann mehrere ObjPublicationGrp geben. Bei ObjPublicationGrp sollten die Typen distinkt sein.
+# Z.B. Typ=SMB-Digital sollte es nur einen Eintrag geben (Ja oder Nein oder gar nichts). Es ist
+# aber auch möglich sich widersprechende Einträge einzutragen: SMB-Digital = Ja und und 
+# SMB-Digital = Nein. Ich vermute, dass wir allgemein alle Fälle brauchen
+[[WRITE]] # change existing value
+ObjPublicationGrp = "new" # make a new one if it doesn't exist
+ObjPublicationGrp.TypeVoc = "write:2600647" # SMB-digital
+ObjPublicationGrp.NotesClb = "new:Freigegeben durch MDVOS"
+
+# Case1: Wenn es noch keinen rGrp ObjPublicationGrp gibt, erzeuge einen mit  
+# TypeVoc = 2600647 (SMB-digital) und schreibe PublicationVoc = 1810139 (Ja) hinein.
+# Case2: Wenn es schon rGrp ObjPublicationGrp mit TypeVoc SMB-Digital gibt und der Wert
+# nicht Ja ist, schreibe Ja hinein. 
+
+
+[[NEW]] # should actually be NEW_OR_WRITE
+	# Bemerkung
+	# Do we want to create a new rGrpItem or do we want to change an existing 
+	# ObjPublicationGrp?
+	field = "ObjPublicationGrp.NotesClb"
+    type = "repeatableGroup.dataField"
+	value = "Freigegeben durch MDVOS" 
  
+# Wenn wir mal annehmen, dass wir Ja zu Nein verändern wollen und einen Kommentar hinterlassen wollen,
+# dann wollen wir existierenden rGrp=ObjPublicationGrp verwenden.
+#
+#
