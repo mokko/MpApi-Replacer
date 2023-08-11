@@ -112,7 +112,7 @@ class Replace1:
             # print (f"{count} inside replace; should be 1")
             yield onItem(itemN=itemN, user=self.user)
 
-    def runPlugin(self, *, plugin: Any, limit:int = -1) -> None:
+    def runPlugin(self, *, plugin: Any, limit: int = -1) -> None:
         """
         runs the plugin which may change the db.
         Prints the number of changes that have been (act mode) or would have

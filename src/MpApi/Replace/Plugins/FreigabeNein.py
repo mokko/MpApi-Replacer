@@ -6,6 +6,7 @@ from mpapi.constants import NSMAP
 
 neinId = 4491690
 jaId = 1810139
+bemerkung = "nicht freigeben, weil nur Ausstellungsobjekt; wir sind nicht verwaltende Inst. oder die Objektdaten sind schlecht"
 
 """
     WARNING: This is quick and dirty. I
@@ -53,7 +54,7 @@ jaId = 1810139
 class FreigabeNein:
     def Input(self):
         groups = {
-            "Instrumente-red.Teile": 467399,
+            "Ausstellungsobjekte ": 509400,
             # "online Instrumente": 467397
         }
         return groups
@@ -71,23 +72,28 @@ class FreigabeNein:
         - not Primärverpackung
         """
         query = Search(module="Object", limit=limit)
-        # query.AND()
+        query.AND()
         query.addCriterion(
             operator="equalsField",
             field="ObjObjectGroupsRef.__id",
             value=str(Id),  # using voc id
         )
-        # query.addCriterion(
-        #    operator="notEqualsField",  # notEqualsTerm
-        #    field="ObjPublicationGrp.TypeVoc",
-        #    value="2600647",  # use id? Daten freigegeben für SMB-digital
-        # )
+        query.addCriterion(
+            operator="equalsField",  # notEqualsTerm
+            field="ObjPublicationGrp.PublicationVoc",
+            value=str(jaId),  # use id? Daten freigegeben für SMB-digital
+        )
+        query.addCriterion(
+            operator="equalsField",  # notEqualsTerm
+            field="ObjPublicationGrp.TypeVoc",
+            value=str(2600647),  # Daten freigegeben für SMB-digital
+        )
         query.addField(field="ObjPublicationGrp")
         query.addField(field="ObjPublicationGrp.repeatableGroupItem")
         query.addField(field="ObjPublicationGrp.PublicationVoc")
         query.addField(field="ObjPublicationGrp.TypeVoc")
         query.addField(field="ObjPublicationGrp.NotesClb")
-        query.print()
+        # query.print()
         query.validate(mode="search")
         return query
 
@@ -113,11 +119,14 @@ class FreigabeNein:
 
         # print(rGrpItemL)
 
-        # it's technically possible to have multiple SMB-Freigaben...
+        # it's technically possible to have multiple contradicting SMB-Freigaben
+        # obviously, we dont want contradicting entries
         # although that should not happen
         if len(rGrpItemL) > 0:
+            # if exsting SMB-Freigabe = Ja
             return self._setFreigabeNein(itemN=itemN, user=user)
         else:
+            # if no SMB-Freigabe at all
             return self._mkNewFreigabeNein(itemN=itemN, user=user)
 
     def _setFreigabeNein(self, *, itemN, user: str) -> dict:
@@ -155,10 +164,8 @@ class FreigabeNein:
 
         print(f"  freigabeId = {freigabeId}")
 
-        bemerkung = "redundantes Teil"
-        bemerkung2 = "MDVOS Revision der Instrumente"
-
         # dont do anything if already Nein
+        # should be implied in search querey, but we can have it twice
         if freigabeId != neinId:
             print("  Freigabe != Nein")
             # WARNING: regenerating instead of changing values!
@@ -216,9 +223,6 @@ class FreigabeNein:
         today = datetime.date.today()
         mtype = "Object"
         print("   mk new Freigabe nein")
-
-        bemerkung = "redundantes Teil"
-        bemerkung2 = "MDVOS Revision der Instrumente"
 
         # should be handled automatically
         # <dataField dataType="Date" name="ModifiedDateDat">

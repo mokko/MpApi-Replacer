@@ -7,8 +7,10 @@ from mpapi.constants import get_credentials
 from mpapi.module import Module
 from pathlib import Path
 
+
 def test_constructor():
     r = Replace2(baseURL="fake", conf_fn="conf.toml", pw="fake", user="fake")
+
 
 def test_input_group():
     if not Path("group-487399.xml").exists:
@@ -24,6 +26,7 @@ def test_input_group():
         r = Replace2(baseURL=baseURL, conf_fn="conf_group.toml", pw=pw, user=user)
     dataM = r.search()
     assert r
+
 
 def test_filter():
     r = Replace2(
@@ -138,9 +141,7 @@ def test_field_exists():
 
 def test_replace():
     user, pw, baseURL = get_credentials()
-    r = Replace2(
-        baseURL=baseURL, conf_fn="conf.toml", cache=True, pw=pw, user=user
-    )
+    r = Replace2(baseURL=baseURL, conf_fn="conf.toml", cache=True, pw=pw, user=user)
     # newL = r.conf["NEW"]
     # newL.append({"field": "DoesNotExist", "type": "dataField", "value": "random value"})
     # newL.append(

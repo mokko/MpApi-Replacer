@@ -100,8 +100,8 @@ class Replace2(BaseApp):
             self.ria.updateField2(mtype=mtype, ID=ID, dataField=fieldL[c], value=value)
         elif cmd["type"] == "repeatableGroup.dataField":
             # Das Problem hier ist, dass es zwar ObjPublicationGrp.NotesClb noch nicht gibt
-            # aber ObjPublicationGrp schon. 
-        
+            # aber ObjPublicationGrp schon.
+
             xml = f"""
             <application xmlns="http://www.zetcom.com/ria/ws/module">
                 <modules>
@@ -120,7 +120,7 @@ class Replace2(BaseApp):
             </application>
             """
             # xml = xml.encode()
-            print (xml)
+            print(xml)
             self.ria.createRepeatableGroup(
                 module=mtype, repeatableGroup=fieldL[0], xml=xml, id=ID
             )
