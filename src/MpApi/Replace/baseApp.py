@@ -313,7 +313,6 @@ class BaseApp:
         return new_conf
 
     def _process_filters(self, data: Module) -> Module:
-
         try:
             self.conf["FILTER"]
         except:

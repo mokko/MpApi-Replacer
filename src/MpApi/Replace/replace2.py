@@ -341,7 +341,6 @@ class Replace2(BaseApp):
             print("\tnot acting")
 
     def _systemField(self, *, action: dict, data: Module, ID: int) -> None:
-
         field = action["field"][1]
         if field != "__orgUnit":
             raise SyntaxError("Only systemField:__orgUnit allowed!")

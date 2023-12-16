@@ -27,7 +27,6 @@ except ModuleNotFoundError:
 
 
 class Replace3(BaseApp):
-
     #
     # private
     #

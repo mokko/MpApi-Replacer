@@ -82,7 +82,7 @@ class WestFreigabe:
         """
         return self.setObjectFreigabe  # returns a callback
 
-    def setObjectFreigabe(self, *, itemN, user):
+    def setObjectFreigabe(self, *, itemN, user) -> dict:
         """
         We're inside Object's nodeItem here. We've already filtered out cases
         where SMBFreigabe exists, so only cases remain without SMBFreigabe.
