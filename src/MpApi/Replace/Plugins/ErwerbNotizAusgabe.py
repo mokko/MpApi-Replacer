@@ -78,6 +78,7 @@ class ErwerbNotizAusgabe:
             field="__orgUnit",
             value="AKuPrimarverpackungen",  # 1632806EM-Primärverpackungen
         )
+        q
         # doesn't reliably find all records without ObjAcquisitionNotesGrp
         # query.addCriterion(
         # operator="notEqualsField",  # notEqualsTerm id 1805533 für Ausgabe
@@ -335,14 +336,14 @@ class ErwerbNotizAusgabe:
 
         if part["datum"] is not None:
             datum = part["datum"]
-            p = re.compile("(\d\d\d\d)$")
+            p = re.compile(r"(\d\d\d\d)$")
             m = p.search(datum)
             if m:
                 part["jahr"] = int(m.group(1))
             else:
                 part["jahr"] = 99999
 
-            p = re.compile("\d+\.\d+\.\d\d\d\d")
+            p = re.compile(r"\d+\.\d+\.\d\d\d\d")
             m = p.search(datum)
             if m:
                 part["datum2"] = f"am {datum}"

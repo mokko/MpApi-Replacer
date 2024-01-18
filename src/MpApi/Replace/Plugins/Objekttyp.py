@@ -53,7 +53,7 @@ class Objekttyp(Plugin):
         )
         if len(r) == 1:
             # if there is a VerwaltendeInsttution do nothing
-            print("Verwaltende Institution exists already!")
+            print("Objekttyp exists already!")
             return None
         elif len(r) > 1:
             raise TypeError("Not allowed")

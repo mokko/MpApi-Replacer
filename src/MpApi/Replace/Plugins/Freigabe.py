@@ -10,8 +10,9 @@ class Freigabe(WestFreigabe):
             # "M44W": "179396",
             # "M45W": "181397",
             # "M45Wii": "179397",
-            "HF Objekte EM": 321406,
-            "HF Objekte AKu": 321407,
+            # "HF Objekte EM": 321406,
+            # "HF Objekte AKu": 321407,
+            "Uhde Mexiko": 604399,
         }
         return groups
 

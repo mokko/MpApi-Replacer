@@ -12,6 +12,10 @@ look for assets
 do
 - set SMBFreigabe for those assets
 
+PROBLEM:
+- if this script is run multiple times, records obtain muliple freigaben
+
+
 """
 
 import datetime
@@ -28,9 +32,15 @@ class AssetDennis(DigiP):
         query.addCriterion(
             operator="equalsField",
             field="MulObjectRef.ObjObjectGroupsRef.__id",
-            value="492398",  # Gruppe
+            value="604399",  # Uhde Mexiko
         )
-        # 3rd criteria
+        # 2nd criteria: avoid multiple Freigaben for successive runs!
+        # query.addCriterion(
+        #    operator="notEqualsField",  # equalsTerm
+        #    field="MulApprovalGrp.TypeVoc",  # ObjCurrentLocationVoc
+        #    value="1816002",  # using vocId SMB-Digital = 1816002
+        # )
+        # 3rd criteria: only assets with attachment?
         query.addCriterion(
             operator="equalsField",  # equalsTerm
             field="MulObjectRef.ThumbnailBoo",  # ObjCurrentLocationVoc

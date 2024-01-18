@@ -127,7 +127,7 @@ class Replace1:
         print(f"LIMIT: {limit}")
         count = int(0)
         for key in Input:
-            print(f"INPUT {key}")
+            print(f"INPUT {key} {Input[key]}")
             query = plugin.search(Id=Input[key], limit=limit)
             query.validate(mode="search")
             # should validate the query inside replacer? Probably yes
@@ -143,7 +143,6 @@ class Replace1:
                     if "xml" in payload:
                         m = Module(xml=payload["xml"])
                         m.validate()
-                        count += 1
                         if self.act is True:
                             if payload["type"] == "createRepeatableGroup":
                                 r = self.api.createRepeatableGroup(
@@ -167,10 +166,11 @@ class Replace1:
                             r.raise_for_status()
                             print(payload["success"])
                             logging.info(payload["success"])
-                        if limit != -1 and count >= limit:
-                            print(f"Limit of {limit} reached, aborting")
-                            return  # break for loop
-        print(f"count: {count}")
+                print(f"count {count}")
+                if limit != -1 and count >= limit:
+                    print(f"Limit of {limit} reached, aborting")
+                    return  # break for loop
+                count += 1
 
     def search(self, *, query: Search, Id: int) -> None:
         """

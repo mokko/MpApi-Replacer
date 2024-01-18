@@ -63,7 +63,8 @@ class ErwerbNotizAusgabe3(ErwerbNotizAusgabe):  # inheritance!
             # "m43AnnaNeu": 318397,
             # "m53": 319397
             # "Flavia": 31393,
-            "Nicky's Bilder": 485397
+            # "Nicky's Bilder": 485397
+            "Uhde Mexiko": 604399,
         }
         return groups
 

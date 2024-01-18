@@ -20,6 +20,7 @@ Interface: I am looking for a decent easy-to-implement interface
 
 import datetime
 from mpapi.search import Search
+from mpapi.constants import NSMAP
 
 
 class DigiP:
@@ -54,16 +55,34 @@ class DigiP:
 
     def setAssetFreigabe(self, *, itemN, user):
         """
-        This is payload. Untested.
         We're inside Multimedia's nodeItem here
         We have already filtered to our hearts delight, so can change
         immediately.
         """
-        # print (itemN)
-
-        Id = itemN.xpath("@id")[0]
-        today = datetime.date.today()
+        Id = itemN.xpath("@id")[0]  # asset Id
         module = "Multimedia"
+        xpath = f"""
+            /m:application/m:modules/m:module[@name='{module}'
+        ]/m:moduleItem[@id='{Id}']/m:repeatableGroup[
+            @name='MulApprovalGrp'
+        ]/m:repeatableGroupItem/m:vocabularyReference[
+            @name='TypeVoc'
+        ]/m:vocabularyReferenceItem[
+            @id = '1816002']"""
+        # print(xpath)
+        testL = itemN.xpath(xpath, namespaces=NSMAP)
+
+        if len(testL) > 0:
+            # print("SMB-Freigabe exists already; no change") # {Id}
+            # if there is a SMB-Freigabe already, do nothing
+            # print(f"***{testL=}")
+            return None
+        print("SMB-Freigabe does not yet exists; setting Freigabe")
+        self.create_Freigabe(module=module, Id=Id, user=user)
+
+    def create_Freigabe(self, *, module, Id, user):
+        today = datetime.date.today()
+
         sort = 1  # unsolved! I suspect it can be None or missing
         xml = f"""
         <application xmlns="http://www.zetcom.com/ria/ws/module">
