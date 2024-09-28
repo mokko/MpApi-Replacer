@@ -1,9 +1,9 @@
 """
-    For records without Objekttyp, give them a Objekttyp.
+For records without Objekttyp, give them a Objekttyp.
 
-    <vocabularyReference name="ObjCategoryVoc" id="30349" instanceName="ObjCategoryVgr">
-      <vocabularyReferenceItem id="3206624" name="Fotografie"/>
-    </vocabularyReference>
+<vocabularyReference name="ObjCategoryVoc" id="30349" instanceName="ObjCategoryVgr">
+  <vocabularyReferenceItem id="3206624" name="Fotografie"/>
+</vocabularyReference>
 """
 
 from mpapi.search import Search

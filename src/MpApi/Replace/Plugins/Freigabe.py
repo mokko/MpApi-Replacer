@@ -16,7 +16,7 @@ class Freigabe(WestFreigabe):
         }
         return groups
 
-    def search(self, Id, limit=-1):
+    def search(self, Id: int, limit: int = -1) -> Search:
         """
         We're trying to find exactly the right records in one go.
         - Objects at are members in certain groups
@@ -54,7 +54,7 @@ class Freigabe(WestFreigabe):
         # query.print()
         return query
 
-    def onItem(self):
+    def onItem(self) -> callable:
         """
         I cant decide if I should run independent jobs for the marker and for
         SMB Freigabe or everything should be in one thing.

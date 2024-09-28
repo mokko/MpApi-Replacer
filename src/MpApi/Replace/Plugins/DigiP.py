@@ -1,19 +1,19 @@
 """
-DigiP: 
+DigiP:
 - look at asset records for HF Objekte
 - only subset that has typ="Digitalisat p"
 - set SMBFreigabe for those assets
 
 Interface: I am looking for a decent easy-to-implement interface
 
-    query = plugin.search(limit=1)  # returns search object (which enables us 
+    query = plugin.search(limit=1)  # returns search object (which enables us
                                     # select a set of records later). limit parameter is optional
-    xpath = plugin.loop()    # returns a string with an xpath expression (which 
+    xpath = plugin.loop()    # returns a string with an xpath expression (which
                              # will be used to loop thru the right moduleItems)
-    onItem = plugin.onItem() # returns a callback to a method which is called 
+    onItem = plugin.onItem() # returns a callback to a method which is called
                              # inside every selected moduleItem. (It's supposed
                              # make a change on the database upstream.)
-    the onItem method is also included in the plugin. I like to refer to it as 
+    the onItem method is also included in the plugin. I like to refer to it as
     "the payload". But in the code i prefer a more expressive label such as
     setAssetFreigabe.
 """
@@ -22,15 +22,17 @@ import datetime
 from mpapi.search import Search
 from mpapi.constants import NSMAP
 
+changes = 0
+
 
 class DigiP:
-    def Input(self):
+    def Input(self) -> dict:
         return {"locId": "4220557"}
 
-    def loop(self):
+    def loop(self) -> str:
         return "/m:application/m:modules/m:module[@name = 'Multimedia']/m:moduleItem"
 
-    def search(self, Id, limit=-1):
+    def search(self, Id: int, limit: int = -1) -> Search:
         query = Search(module="Multimedia", limit=limit)
         query.AND()
         query.addCriterion(
@@ -50,10 +52,10 @@ class DigiP:
         )
         return query
 
-    def onItem(self):
+    def onItem(self) -> callable:
         return self.setAssetFreigabe  # returns a callback
 
-    def setAssetFreigabe(self, *, itemN, user):
+    def setAssetFreigabe(self, *, itemN, user: str) -> None | dict:
         """
         We're inside Multimedia's nodeItem here
         We have already filtered to our hearts delight, so can change
@@ -77,13 +79,13 @@ class DigiP:
             # if there is a SMB-Freigabe already, do nothing
             # print(f"***{testL=}")
             return None
-        print("SMB-Freigabe does not yet exists; setting Freigabe")
-        self.create_Freigabe(module=module, Id=Id, user=user)
+        return self.create_Freigabe(module=module, Id=Id, user=user)
 
-    def create_Freigabe(self, *, module, Id, user):
+    def create_Freigabe(self, *, module: str, Id: int, user: str) -> dict:
         today = datetime.date.today()
-
         sort = 1  # unsolved! I suspect it can be None or missing
+        print("SMB-Freigabe does not yet exists; setting Freigabe")
+
         xml = f"""
         <application xmlns="http://www.zetcom.com/ria/ws/module">
           <modules>

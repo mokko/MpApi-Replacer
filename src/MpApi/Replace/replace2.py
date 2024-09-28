@@ -1,9 +1,9 @@
 """
-    Replacer2 is the atomic replacer which make api requests per individual per field 
+    Replacer2 is the atomic replacer which make api requests per individual per field
     changes. This method might be slower, but it leads to cleaner logs and is hence
     superior.
 
-    Replacer2 is different from replacer1 in that it 
+    Replacer2 is different from replacer1 in that it
     - takes saved queries as input and
     - it allows only to replace existing values with new values
     In contrast to replacer3 it
@@ -17,7 +17,7 @@
 
 _per_item
     per command: new, add, sub, write, [new_or_write, add_or_new]
-        
+
         per element:
 
 
@@ -25,8 +25,9 @@ Objektbeschreibung: Eine in Syrien gefertigte Oboe mit besonderen Intarsien.
 Feld mit ID: X durch Y austauschen.
 
 
-    
+
 """
+
 import argparse
 from copy import deepcopy
 import datetime

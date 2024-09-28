@@ -1,5 +1,5 @@
 """
-After having experimented with the 1-field replacer (replace2.py), we try out replacing 
+After having experimented with the 1-field replacer (replace2.py), we try out replacing
 global documents next.
 
 We want to use the same config toml format as for replace2.

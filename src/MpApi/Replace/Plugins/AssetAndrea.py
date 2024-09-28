@@ -1,12 +1,12 @@
 """
-Andrea wants to publish a group on SMB-Digital; this script SMB approves all 
-assets attached to object records in that group, unless they have 
+Andrea wants to publish a group on SMB-Digital; this script SMB approves all
+assets attached to object records in that group, unless they have
     SMB-Freigabe = Nein
 For a couple secret Yurupari flutes, photos/depictions are not shown.
 
 Fotografen:
 look for assets
-- Bereich "EM-Am Ethnologie" -> EMAmEthnologie 
+- Bereich "EM-Am Ethnologie" -> EMAmEthnologie
 - only assets that dont have SMB-Freigabe yet
 - belong to objects in group 29636
 do

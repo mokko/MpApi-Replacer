@@ -78,7 +78,6 @@ class ErwerbNotizAusgabe:
             field="__orgUnit",
             value="AKuPrimarverpackungen",  # 1632806EM-Primärverpackungen
         )
-        q
         # doesn't reliably find all records without ObjAcquisitionNotesGrp
         # query.addCriterion(
         # operator="notEqualsField",  # notEqualsTerm id 1805533 für Ausgabe

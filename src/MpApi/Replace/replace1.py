@@ -7,20 +7,20 @@ Command Line Usage
     MPreplace -j bla # runs Plugin mpapi.replace.bla
 
 Replace object basically runs
-    r = Replace(baseURL=baseURL, user=U, pw=pw) 
+    r = Replace(baseURL=baseURL, user=U, pw=pw)
     plugin = r.job (plugin=bla)
     r.runPlugin(plugin=plugin)
 
 INTERFACE OF THE PLUGIN
-requires a class with four methods 
+requires a class with four methods
 (1)
 'Input' is expected to return a dict with ids and short textual descriptions
     def Input(self):
         return {"3 Wege Boxeraufstand": "117396",}
 
 (2)
-'loop' returns an xpath expression which records in the results are processed, 
-typically:  
+'loop' returns an xpath expression which records in the results are processed,
+typically:
     def loop(self):
         return "/m:application/m:modules/m:module[@name = 'Object']/m:moduleItem"
 
@@ -31,7 +31,7 @@ typically:
         query.addCriterion(
             operator="equalsField",
             field="ObjObjectGroupsRef.__id",
-            value=Id,  
+            value=Id,
         )
         return query
 (4)
@@ -41,8 +41,8 @@ typically:
 
 PSEUDO-ALGORITHM
 For every id in the (1) Input dictionary, query the db using the pattern from
-(3) search. Get the results looping through them using the (2) xpath 
-expression. On every moduleItem, apply (4, 5) onItem(node=node, 
+(3) search. Get the results looping through them using the (2) xpath
+expression. On every moduleItem, apply (4, 5) onItem(node=node,
 user=user).
 
 """
@@ -125,7 +125,8 @@ class Replace1:
         Input = plugin.Input()
         limit = int(limit)
         print(f"LIMIT: {limit}")
-        count = int(0)
+        count = 1
+        changes = 0
         for key in Input:
             print(f"INPUT {key} {Input[key]}")
             query = plugin.search(Id=Input[key], limit=limit)
@@ -140,33 +141,42 @@ class Replace1:
                 # print (f"XML {payload['xml']}") -> use file debug.xml instead
                 # it's possible that payload is empty, but it has to exist
                 if payload is not None:
+                    changes += 1
                     if "xml" in payload:
                         m = Module(xml=payload["xml"])
                         m.validate()
                         if self.act is True:
-                            if payload["type"] == "createRepeatableGroup":
-                                r = self.api.createRepeatableGroup(
-                                    module=payload["module"],
-                                    id=payload["id"],
-                                    repeatableGroup=payload["repeatableGroup"],
-                                    xml=payload["xml"],
-                                )
-                            elif payload["type"] == "updateRepeatableGroup":
-                                r = self.api.updateRepeatableGroup(
-                                    module=payload["module"],
-                                    id=payload["id"],
-                                    repeatableGroup=payload["repeatableGroup"],
-                                    xml=payload["xml"],
-                                    referenceId=payload[
-                                        "refId"
-                                    ],  # do we need to pass refId or not?
-                                )
-                            else:
-                                raise TypeError("UNKNOWN PAYLOAD TYPE")
+                            match payload["type"]:
+                                case "createRepeatableGroup":
+                                    r = self.api.createRepeatableGroup(
+                                        module=payload["module"],
+                                        id=payload["id"],
+                                        repeatableGroup=payload["repeatableGroup"],
+                                        xml=payload["xml"],
+                                    )
+                                case "updateRepeatableGroup":
+                                    r = self.api.updateRepeatableGroup(
+                                        module=payload["module"],
+                                        id=payload["id"],
+                                        repeatableGroup=payload["repeatableGroup"],
+                                        xml=payload["xml"],
+                                        referenceId=payload[
+                                            "refId"
+                                        ],  # do we need to pass refId or not?
+                                    )
+                                case "updateField":
+                                    r = self.api.updateField2(
+                                        mtype=payload["module"],
+                                        ID=payload["id"],
+                                        datafield=payload["id"],
+                                        value=payload["value"],
+                                    )
+                                case _:
+                                    raise TypeError("UNKNOWN PAYLOAD TYPE")
                             r.raise_for_status()
                             print(payload["success"])
                             logging.info(payload["success"])
-                print(f"count {count}")
+                print(f"count {count} changes {changes}")
                 if limit != -1 and count >= limit:
                     print(f"Limit of {limit} reached, aborting")
                     return  # break for loop
