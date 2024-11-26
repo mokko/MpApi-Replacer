@@ -12,11 +12,11 @@ This is a simple search/replace where we call only low-level modules.
 """
 
 
-def main(cache: bool = False, limit: int = -1) -> None:
+def main(act: bool, cache: bool = False, limit: int = -1) -> None:
     # configuration
     old_unit = "EMAllgemein"
-    new_unit = "EMAfrika1"  # AKuArchivSSOZ?
-    grp_ID = 778398
+    new_unit = "AKuArchivSSOZ"  # typo will result in raise
+    grp_ID = 778398  # group not query!
     mtype = "Object"  # or Multimedia
 
     # do a query
@@ -25,8 +25,12 @@ def main(cache: bool = False, limit: int = -1) -> None:
     )
 
     # change online records
-    replace2(data=m, limit=limit, mtype=mtype, new_unit=new_unit)
-    print(">>Success")
+    if act:
+        print(">>Act = True")
+        replace2(data=m, limit=limit, mtype=mtype, new_unit=new_unit)
+        print(">>Success")
+    else:
+        print(">>Act = False")
 
 
 def replace1(*, client: MpApi, data: Module, limit: int) -> None:
@@ -74,7 +78,7 @@ def replace2(*, data: Module, limit: int, mtype: str, new_unit: str) -> None:
         f"/m:application/m:modules/m:module[@name = '{mtype}']/m:moduleItem"
     )
     for idx, itemN in enumerate(itemL, start=1):
-        itemN = deepcopy(itemN) # so that uploadform doesn't change original
+        itemN = deepcopy(itemN)  # so that uploadform doesn't change original
         ID = int(itemN.xpath("@id", namespaces=NSMAP)[0])
         print(f">>{ID} changing orgUnit to '{new_unit}'")
         orgUnitN = itemN.xpath(
@@ -150,13 +154,12 @@ def _query_ria(
         user, pw, baseURL = get_credentials()
         print(f">>Logging in as '{user}'")
         c = MpApi(baseURL=baseURL, user=user, pw=pw)
-        q = search(
-            ID=grp_ID, limit=limit, old_unit=old_unit, mtype=mtype
-        )  # your input here
+        q = search(ID=grp_ID, limit=limit, old_unit=old_unit, mtype=mtype)
         m = c.search2(query=q)
-        print("Writing query results to {results_fn}")
+        print(f"Writing query results to {results_fn}")
         m.toFile(path=results_fn)  # delete manually
     return m
+
 
 #
 #
@@ -166,14 +169,20 @@ if __name__ == "__main__":
     # we currently dont have -a act flag
     parser = argparse.ArgumentParser()
     parser.add_argument(
+        "-a", "--act", help="Actually do the changes in RIA", action="store_true"
+    )
+    parser.add_argument(
+        "-c",
+        "--cache",
+        help="Use cached response; dont do a live query",
+        action="store_true",
+    )
+    parser.add_argument(
         "-l",
         "--limit",
         help="Stop the execution after x number of items",
         type=int,
         default=-1,
     )
-    parser.add_argument(
-        "-c", "--cache", help="Use cached response", action="store_true"
-    )
     args = parser.parse_args()
-    main(cache=args.cache, limit=args.limit)
+    main(cache=args.cache, limit=args.limit, act=args.act)

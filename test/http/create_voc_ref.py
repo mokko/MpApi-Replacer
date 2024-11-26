@@ -1,9 +1,9 @@
 """
-Object records in Hauke's group often have no Objekttyp. So we want to set it 
+Object records in Hauke's group often have no Objekttyp. So we want to set it
 automatically. For that we need to set a vocabularyReference. If I remember
 correctly, that is the one thing we haven't been able to do so far.
 
-So in this test file, we'll make some methodologic tests. 
+So in this test file, we'll make some methodologic tests.
 
 Limitation we want to create a new vocRef, not modify an existing one.
 
@@ -11,7 +11,7 @@ From memory, I think I may have only managed to create new vocRef by
 updating the whole document.
 
 Hauke's group: 544398
-VIII E 4745 ID: 3266561 has 
+VIII E 4745 ID: 3266561 has
 
 Which endpoints are conceivable?
 updateField? dataField
