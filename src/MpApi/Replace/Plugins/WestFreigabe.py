@@ -104,6 +104,9 @@ class WestFreigabe:
                             <dataField dataType="Varchar" name="ModifiedByTxt">
                                 <value>{user}</value>
                             </dataField>
+                            <dataField dataType="Clob" name="NotesClb">
+                                <value>online gestellt anlässlich Mazateca-Ausstellung 2025 in Mexiko</value>
+                            </dataField>
                            <vocabularyReference name="PublicationVoc" id="62649" instanceName="ObjPublicationVgr">
                              <vocabularyReferenceItem id="1810139"/>
                            </vocabularyReference>

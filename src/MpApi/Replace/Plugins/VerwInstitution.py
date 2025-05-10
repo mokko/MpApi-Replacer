@@ -52,7 +52,7 @@ class VerwInstitution(Plugin):
                 <module name="{module}">
                   <moduleItem id="{Id}">
                     <moduleReference name="ObjOwnerRef" targetModule="Address"> 
-                      <moduleReferenceItem moduleItemId="{Institutions['EM']}" />
+                      <moduleReferenceItem moduleItemId="{Institutions["EM"]}" />
                     </moduleReference>
                   </moduleItem>
                 </module>

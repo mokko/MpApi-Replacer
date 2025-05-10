@@ -147,7 +147,7 @@ class BaseApp:
             elif atype == "vocabularyReference":
                 xpath += f"m:{atype}[@name='{afield}']"
             else:
-                raise ConfigError(f"filter type '{atype }' not yet implemented")
+                raise ConfigError(f"filter type '{atype}' not yet implemented")
 
             if c < (len(types) - 1):  # not last one
                 xpath += "/"
@@ -163,7 +163,7 @@ class BaseApp:
         ):
             xpath += f"[m:value {match} '{value}']"
         else:
-            raise ConfigError(f"filter type '{atype }' not yet implemented")
+            raise ConfigError(f"filter type '{atype}' not yet implemented")
 
         xpath += "]"
 

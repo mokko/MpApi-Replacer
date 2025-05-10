@@ -357,7 +357,7 @@ class Replace2(BaseApp):
                     <module name="{mtype}">
                         <moduleItem id="{ID}">
                             <systemField name="{field}">
-                                 <value>{action['r_in']}</value>
+                                 <value>{action["r_in"]}</value>
                             </systemField>
                         </moduleItem>
                     </module>

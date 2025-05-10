@@ -25,17 +25,17 @@ class AssetFlavia(AssetFreigabe):
         query = Search(module="Multimedia", limit=limit)
         query.AND()
         # 1st criteria
-        query.addCriterion(
-            operator="equalsField",  # notEqualsTerm
-            field="__orgUnit",  # __orgUnit is not allowed in Zetcom's own search.xsd
-            value="EMAmEthnologie",
-        )
+        #        query.addCriterion(
+        #            operator="equalsField",  # notEqualsTerm
+        #            field="__orgUnit",  # __orgUnit is not allowed in Zetcom's own search.xsd
+        #            value="EMAmEthnologie",
+        #        )
 
         # 2nd criteria
         query.addCriterion(
             operator="equalsField",
             field="MulObjectRef.ObjObjectGroupsRef.__id",
-            value="31393",  # Gruppe
+            value="920398",  # Utes Gruppe
         )
 
         # 3rd criteria

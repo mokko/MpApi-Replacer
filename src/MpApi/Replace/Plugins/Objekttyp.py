@@ -64,7 +64,7 @@ class Objekttyp(Plugin):
                 <module name="{module}">
                   <moduleItem id="{Id}">
                     <vocabularyReference name="ObjCategoryVoc" id="30349" instanceName="ObjCategoryVgr">
-                      <vocabularyReferenceItem id="{Typen['Fotografie']}"/>
+                      <vocabularyReferenceItem id="{Typen["Fotografie"]}"/>
                     </vocabularyReference>
                   </moduleItem>
                 </module>
